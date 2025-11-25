@@ -1,0 +1,1 @@
+export const ITA_TOKEN_TESTNET = "fdsds"
