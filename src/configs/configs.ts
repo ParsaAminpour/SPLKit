@@ -1,12 +1,15 @@
 import path from "path"
 import fs from "fs"
 import { default_configs } from "./default"
+import { Keypair } from "@solana/web3.js"
+import * as utils from "../utils/utils"
 
 export interface ITAConfiguration {
     cluster: string,
     ita_token_program_id: string,
     ita_token_mint_pda: string,
-    admin_wallet_address: string
+    admin_wallet_keypair?: Keypair,
+    cluster_url: string,
 }
 
 export class ConfigManager {
@@ -23,10 +26,11 @@ export class ConfigManager {
 
     private loadLocalConfig(): ITAConfiguration {
         if (fs.existsSync(this.localConfigPath)) {
-            let conf = JSON.parse(fs.readFileSync(this.localConfigPath, "utf-8"))
+            let conf = JSON.parse(fs.readFileSync(this.localConfigPath, "utf-8")) as ITAConfiguration
             Object.entries(conf).forEach(([key, val]) => {
                 if (val == "") throw new Error(`local configuration has not ${key}, please complete the local configuration json file first`) 
             })
+            conf.admin_wallet_keypair = utils.getAdminKeypair()
             return conf
         } else {
             return this.loadDefaultConfig()
@@ -41,10 +45,10 @@ export class ConfigManager {
     }
 
     public setCustomConfig(
-        _cluster?: string, 
+        _cluster?: string,
         _ita_token_program_id?: string,
         _ita_token_mint_pda?: string,
-        _admin_wallet_address?: string
+        _cluster_url?: string,
     ): ITAConfiguration {
         let conf: ITAConfiguration
         if (fs.existsSync(this.localConfigPath)) {
@@ -52,7 +56,7 @@ export class ConfigManager {
             if (_cluster) conf.cluster = _cluster
             if (_ita_token_program_id) conf.ita_token_program_id = _ita_token_program_id
             if (_ita_token_mint_pda) conf.ita_token_mint_pda = _ita_token_mint_pda
-            if (_admin_wallet_address) conf.admin_wallet_address = _admin_wallet_address
+            if (_cluster_url) conf.cluster_url = _cluster_url
         } else {
             throw new Error("configuration file (ita-cli.config.json) doesn't exist")
         }

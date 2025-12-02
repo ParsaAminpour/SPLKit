@@ -1,0 +1,537 @@
+{
+  "address": "9HSB1XqgEXgGzvNnDSZBc95nkoWB3p7WkcYb4tpzALrc",
+  "metadata": {
+    "name": "ita_token",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Created with Anchor"
+  },
+  "instructions": [
+    {
+      "name": "burn_token",
+      "docs": [
+        "Burns tokens from the admin's token account, reducing total supply",
+        "",
+        "# Arguments",
+        "* `ctx` - The context containing all required accounts for burning",
+        "* `amount_normal_format` - The amount of tokens to burn in normal format (without decimals)",
+        "e.g., 1000 = 1000 tokens (not 1000 base units)",
+        "",
+        "# Accounts",
+        "* `admin` - The authorized admin account (must match ADMIN_PUBKEY), signer and authority",
+        "* `admin_token_account` - The admin's associated token account to burn from",
+        "* `ita_token_mint` - The mint account PDA that will have supply reduced",
+        "* `token_program` - The SPL Token program",
+        "",
+        "# Returns",
+        "* `Result<()>` - Ok(()) on success, or an error",
+        "",
+        "# Security",
+        "* Only callable by the hardcoded ADMIN_PUBKEY",
+        "* Amount must be greater than 0 (prevents unnecessary transactions)",
+        "* Uses checked multiplication to prevent overflow attacks",
+        "* Admin must have sufficient token balance to burn",
+        "* Permanently reduces circulating supply (irreversible operation)",
+        "",
+        "# Notes",
+        "* Amount is converted from normal format to base units (multiplied by 10^9)",
+        "* Admin's token account must already exist and have sufficient balance",
+        "* Burned tokens are permanently removed from circulation",
+        "* No on-chain total supply tracking - admin manages supply manually",
+        "* This is an irreversible operation - burned tokens cannot be recovered",
+        "",
+        "# Errors",
+        "* `InvalidAmount` - If amount is 0",
+        "* `AmountOverflow` - If decimal conversion causes overflow",
+        "* Token program error - If insufficient balance in admin_token_account"
+      ],
+      "discriminator": [
+        185,
+        165,
+        216,
+        246,
+        144,
+        31,
+        70,
+        74
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "address": "A1Mf4jdhkjpr3hPscgYvQrwRnryeZWW9mHGzayth8e6o"
+        },
+        {
+          "name": "admin_token_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "admin"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "ita_token_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "ita_token_mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  116,
+                  97,
+                  95,
+                  116,
+                  111,
+                  107,
+                  101,
+                  110,
+                  95,
+                  115,
+                  101,
+                  101,
+                  100
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount_normal_format",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "create_mint",
+      "docs": [
+        "Creates a new SPL token mint with associated metadata",
+        "",
+        "# Arguments",
+        "* `ctx` - The context containing all required accounts for mint creation",
+        "* `uri` - The metadata URI pointing to off-chain token metadata (JSON)",
+        "* `name` - The token name (e.g., \"ITA Token\")",
+        "* `symbol` - The token symbol (e.g., \"ITA\")",
+        "",
+        "# Accounts",
+        "* `admin` - The authorized admin account (must match ADMIN_PUBKEY), pays for account creation",
+        "* `ita_token_mint` - The mint account PDA that will be created with 9 decimals",
+        "* `metadata_account` - The metadata account PDA for storing token metadata",
+        "* `token_program` - The SPL Token program",
+        "* `token_metadata_program` - The Metaplex Token Metadata program",
+        "* `system_program` - The System program for account creation",
+        "* `rent` - The Rent sysvar",
+        "",
+        "# Returns",
+        "* `Result<()>` - Ok(()) on success, or an error",
+        "",
+        "# Security",
+        "* Only callable by the hardcoded ADMIN_PUBKEY",
+        "* Mint authority is set to the PDA (prevents unauthorized minting)",
+        "* Metadata update authority is set to admin (allows metadata updates)",
+        "* Freeze authority is set to admin (allows freezing token accounts if needed)",
+        "",
+        "# Notes",
+        "* This function can only be called once per mint PDA",
+        "* The mint has 9 decimals (1 token = 1_000_000_000 base units)",
+        "* Metadata is mutable and can be updated by admin"
+      ],
+      "discriminator": [
+        69,
+        44,
+        215,
+        132,
+        253,
+        214,
+        41,
+        45
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "address": "A1Mf4jdhkjpr3hPscgYvQrwRnryeZWW9mHGzayth8e6o"
+        },
+        {
+          "name": "ita_token_mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  116,
+                  97,
+                  95,
+                  116,
+                  111,
+                  107,
+                  101,
+                  110,
+                  95,
+                  115,
+                  101,
+                  101,
+                  100
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "metadata_account",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "token_metadata_program",
+          "address": "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "uri",
+          "type": "string"
+        },
+        {
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "name": "symbol",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "mint_token",
+      "docs": [
+        "Mints new tokens to the admin's token account",
+        "",
+        "# Arguments",
+        "* `ctx` - The context containing all required accounts for minting",
+        "* `amount_normal_format` - The amount of tokens to mint in normal format (without decimals)",
+        "e.g., 1000 = 1000 tokens (not 1000 base units)",
+        "",
+        "# Accounts",
+        "* `admin` - The authorized admin account (must match ADMIN_PUBKEY), signer",
+        "* `admin_token_account` - The admin's associated token account (created if needed)",
+        "* `ita_token_mint` - The mint account PDA with authority to mint",
+        "* `token_program` - The SPL Token program",
+        "* `associated_token_program` - The Associated Token program",
+        "* `system_program` - The System program for account creation",
+        "",
+        "# Returns",
+        "* `Result<()>` - Ok(()) on success, or an error",
+        "",
+        "# Security",
+        "* Only callable by the hardcoded ADMIN_PUBKEY",
+        "* Amount must be greater than 0 (prevents unnecessary transactions)",
+        "* Amount must not exceed ITA_TOKEN_MAX_SUPPLY (1 billion tokens)",
+        "* Uses checked multiplication to prevent overflow attacks",
+        "* PDA serves as the mint authority (secure CPI pattern)",
+        "",
+        "# Notes",
+        "* Automatically creates admin's token account if it doesn't exist",
+        "* Amount is converted from normal format to base units (multiplied by 10^9)",
+        "* Maximum mintable amount per call: 18,446,744,073 tokens (with 9 decimals)",
+        "* No on-chain total supply tracking - admin manages supply manually",
+        "",
+        "# Errors",
+        "* `InvalidAmount` - If amount is 0",
+        "* `MaxSupplyExceeded` - If amount exceeds ITA_TOKEN_MAX_SUPPLY",
+        "* `AmountOverflow` - If decimal conversion causes overflow"
+      ],
+      "discriminator": [
+        172,
+        137,
+        183,
+        14,
+        207,
+        110,
+        234,
+        56
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "address": "A1Mf4jdhkjpr3hPscgYvQrwRnryeZWW9mHGzayth8e6o"
+        },
+        {
+          "name": "admin_token_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "admin"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "ita_token_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "ita_token_mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  116,
+                  97,
+                  95,
+                  116,
+                  111,
+                  107,
+                  101,
+                  110,
+                  95,
+                  115,
+                  101,
+                  101,
+                  100
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount_normal_format",
+          "type": "u64"
+        }
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "NotEnoughHealth",
+      "msg": "Not enough health"
+    },
+    {
+      "code": 6001,
+      "name": "InvalidAmount",
+      "msg": "Invalid amount"
+    },
+    {
+      "code": 6002,
+      "name": "MaxSupplyExceeded",
+      "msg": "Max supply exceeded"
+    },
+    {
+      "code": 6003,
+      "name": "AmountOverflow",
+      "msg": "Amount overflow"
+    },
+    {
+      "code": 6004,
+      "name": "InvalidAdmin",
+      "msg": "Invalid admin"
+    }
+  ]
+}

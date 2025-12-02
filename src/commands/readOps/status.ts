@@ -1,0 +1,75 @@
+// import { ITAConfiguration } from "@/configs/configs"
+import { CliContext } from "@/index";
+import { PublicKey } from "@solana/web3.js";
+import * as constant from "../constants"
+import { getAssociatedTokenAddressSync, getMint } from "@solana/spl-token"
+import Table from 'cli-table3';
+import { consola } from "consola";
+import { getAssociatedTokenAddress} from "@solana/spl-token"
+// import { Program, Wallet, web3 } from "@coral-xyz/anchor";
+// import { Keypair, PublicKey } from "@solana/web3.js";
+
+export const tokenInfo = async(cctx: CliContext) => {
+    consola.start("getting information about token...")
+    const [itaTokenMintPDA] = PublicKey.findProgramAddressSync(
+        [Buffer.from(constant.ITA_TOKEN_SEED)],
+        cctx.program.programId
+    )
+    const [metadataAccountPDA] = PublicKey.findProgramAddressSync(
+        [
+          Buffer.from("metadata"),
+          constant.TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+          itaTokenMintPDA.toBuffer(),
+        ],
+        constant.TOKEN_METADATA_PROGRAM_ID
+      );
+
+      const mintAccount = await getMint(cctx.connection, itaTokenMintPDA)
+      const table = new Table()
+      table.push(["mintAddress", mintAccount.address.toString()])
+      table.push(["tokenSupply", mintAccount.supply.toString()])
+      table.push(["mintAuthority", mintAccount.mintAuthority?.toString()])
+      table.push(["freezeAuthority", mintAccount.freezeAuthority?.toString()])
+      table.push(["metadataAccountPDA", metadataAccountPDA.toString()])
+      console.log(table.toString())
+}
+
+export const getATABalance= async(cctx: CliContext, options: any): Promise<number> => {
+    const userATA = await getAssociatedTokenAddress(
+        cctx.itaTokenMintPDA, 
+        new PublicKey(options.address), 
+    )
+    let balance = 0
+    try {
+        balance = Number((await cctx.connection.getTokenAccountBalance(userATA)).value.amount) / 1e9
+    } catch (error) {
+        consola.warn(`User ATA not found, you need to create it first`)
+    }
+    consola.success(`Balance of ${options.address}: ${balance.toString()}`)
+    // return Number(balance.value.amount.toString())
+    return 0
+}
+
+export const tokenAccountInfo = async(cctx: CliContext, options: any) => {
+    const userATA = await getAssociatedTokenAddressSync(
+        cctx.itaTokenMintPDA,
+        new PublicKey(options.address)
+    )
+    consola.success(`Your Associated Token Address is: ${userATA}`)
+}
+
+export const getTokeHolders = async(cctx: CliContext, _: any) => {
+    const reqBody = {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: '{"jsonrpc":"2.0","id":"1","method":"getTokenAccounts","params":{"owner":"A1Mf4jdhkjpr3hPscgYvQrwRnryeZWW9mHGzayth8e6o", "mint":"3Has4Q1yxdhQgAbByNLpP4EcWDn1nJUpqfSQg3d2W1Am"}}'
+    };
+
+    try {
+      const response = await fetch(cctx.configs.cluster_url, reqBody);
+      const data = await response.json();
+      console.log(data);
+    } catch (error) {
+      console.error(error);
+    }
+}
