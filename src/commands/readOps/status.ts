@@ -6,6 +6,8 @@ import { getAssociatedTokenAddressSync, getMint } from "@solana/spl-token"
 import Table from 'cli-table3';
 import { consola } from "consola";
 import { getAssociatedTokenAddress} from "@solana/spl-token"
+import { writeToFile } from "../../utils/utils";
+import { showFailure } from "../../utils/messageUtils";
 // import { Program, Wallet, web3 } from "@coral-xyz/anchor";
 // import { Keypair, PublicKey } from "@solana/web3.js";
 
@@ -27,7 +29,7 @@ export const tokenInfo = async(cctx: CliContext) => {
       const mintAccount = await getMint(cctx.connection, itaTokenMintPDA)
       const table = new Table()
       table.push(["mintAddress", mintAccount.address.toString()])
-      table.push(["tokenSupply", mintAccount.supply.toString()])
+      table.push(["tokenSupply", `${mintAccount.supply.toString()} ~ ${mintAccount.supply / BigInt(1e9)}`])
       table.push(["mintAuthority", mintAccount.mintAuthority?.toString()])
       table.push(["freezeAuthority", mintAccount.freezeAuthority?.toString()])
       table.push(["metadataAccountPDA", metadataAccountPDA.toString()])
@@ -58,18 +60,35 @@ export const tokenAccountInfo = async(cctx: CliContext, options: any) => {
     consola.success(`Your Associated Token Address is: ${userATA}`)
 }
 
-export const getTokeHolders = async(cctx: CliContext, _: any) => {
+export const getTokeHolders = async(cctx: CliContext, options: any) => {
     const reqBody = {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: '{"jsonrpc":"2.0","id":"1","method":"getTokenAccounts","params":{"owner":"A1Mf4jdhkjpr3hPscgYvQrwRnryeZWW9mHGzayth8e6o", "mint":"3Has4Q1yxdhQgAbByNLpP4EcWDn1nJUpqfSQg3d2W1Am"}}'
+      body: '{"jsonrpc":"2.0","id":"1","method":"getTokenAccounts","params":{"mint":"3Has4Q1yxdhQgAbByNLpP4EcWDn1nJUpqfSQg3d2W1Am"}}'
     };
 
     try {
       const response = await fetch(cctx.configs.cluster_url, reqBody);
-      const data = await response.json();
-      console.log(data);
-    } catch (error) {
-      console.error(error);
+      const fetchedData = await response.json() as any;
+      const tokenOwnersData: Array<any> = fetchedData["result"]["token_accounts"];
+      let data = []
+      for(const owner of tokenOwnersData) {
+        const ownerATA = await getAssociatedTokenAddress(
+          cctx.itaTokenMintPDA,
+          new PublicKey(owner.owner)
+        )
+        const balance = (await cctx.connection.getTokenAccountBalance(ownerATA)).value.amount
+        data.push({owner: owner.owner, balance: `${Number(balance) / 1e9}`})
+      }
+      data.sort((b1, b2) => Number(b2.balance) - Number(b1.balance))
+
+      if (options.output) {
+        const content: string[] = data.map(line => `owner: ${line.owner} | balance: ${line.balance}\n`)
+        writeToFile(options.output, content);
+      } else {
+        console.table(data.flat())
+      }
+    } catch (error: any) {
+      showFailure(error.message)
     }
 }

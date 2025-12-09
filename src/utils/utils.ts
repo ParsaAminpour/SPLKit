@@ -13,3 +13,8 @@ export const getAdminKeypair = (): Keypair => {
         const admingPrivateKey = JSON.parse(fs.readFileSync("wallet.json", "utf-8"))
         return Keypair.fromSecretKey(Buffer.from(admingPrivateKey))
 }
+
+export const writeToFile = async (filePath: string, content: string[]) => {
+    const contentWithNewlines = content.join('\n')
+    fs.writeFileSync(filePath, contentWithNewlines)
+}

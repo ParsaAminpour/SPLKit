@@ -12,6 +12,7 @@ import * as constant from "./commands/constants"
 import { getATABalance } from "./commands/readOps/status"
 import { tokenInfo, tokenAccountInfo, getTokeHolders } from "./commands/readOps/status"
 import { mintToken } from "./commands/writeOps/mint";
+import { transferToken } from "./commands/writeOps/transfer";
 import * as utils from "./utils/utils"
 // import { Keypair, PublicKey } from "@solana/web3.js";
 
@@ -54,20 +55,26 @@ program
         }
     })
 
-export const tokenInfoCommand = program.command("token-info")
+export const tokenInfoCommand = program.command("token-info") // ✅ Done
 export const supply = program.command("supply")
-export const balanceCommand = program.command("balance").option("-a --address <string>", "address of the wallet for checking balance")
-export const tokenAccountInfoCommand = program.command("account-info").option("-a --address <string>", "The token account address you want know about it")
-export const topHoldersCommand = program.command("top-holders").description("getting top 10 holders of the token")
+export const balanceCommand = program.command("balance").option("-a --address <string>", "address of the wallet for checking balance") // ✅ Done
+export const tokenAccountInfoCommand = program.command("account-info").option("-a --address <string>", "The token account address you want know about it") // ✅ Done
+export const topHoldersCommand = program.command("top-holders") // ✅ Done
+    .option("-o --output <string>", "write the output to a file with selected path")
+    .description("getting top 10 holders of the token")
 
-export const mintCommand = program.command("mint")
+export const mintCommand = program.command("mint") // ✅ Done
     .option("-t --to <string>", "The address of the receiver")
     .option("-a --amount <number>", "The amount of tokens to mint")
     .description("Mint tokens to a specified address")
     .description("The default and valid destination for minting is admin, if you want to have another destination you should pass the address in --to option, and the admin will transfer it to that address.")
 
-export const burnCommand = program.command("burn")
 export const transferCommand = program.command("transfer")
+    .option("-t --to <string>", "The address of the receiver")
+    .option("-a --amount <number>", "The amount of tokens to mint")
+    .description("transfer token from the admin wallet to the chosen destination")
+
+export const burnCommand = program.command("burn")
 export const batchTransfercommand = transferCommand.command("batch").option("-f --file <string>")
 export const createATACommand = program.command("create-account").option("-o --owner <address", "The owner of the Associated Token Account")
 export const closeATACommand = program.command("close-account").option("-a --address <string", "The address of Associated Token Account to close for reclaiming rent")
@@ -83,6 +90,7 @@ export const priceCommand = program.command("price").description("Get current to
 export const priceHistory = priceCommand.command("history").description("historical price data (24h, 7d, 30d")
 export const poolStatsCommand = poolCommand.command("stats").description("Trading volume, fees earned, TVL")
 export const poolAPRCommand = poolCommand.command("apr").description("Calculate current APR/APY")
+
 // Raydium Pool Write Operations
 export const poolAddLiquidityCommand = poolCommand.command("add").option("--amountA <number>").option("--amountB <number>").description("Add liquidity to CLMM pool")
 export const poolRemoveLiquidityCommand = poolCommand.command("remove").option("--position-id <string>") // replace appropriate command for CPMM
@@ -168,6 +176,7 @@ const main = async() => {
     topHoldersCommand.action(async(options) => await getTokeHolders(cctx, options))
 
     mintCommand.action(async(options) => await mintToken(cctx, options))
+    transferCommand.action(async(options) => await transferToken(cctx, options))
 }
 
 main()
