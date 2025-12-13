@@ -12,8 +12,9 @@ import * as constant from "./commands/constants"
 import { getATABalance } from "./commands/readOps/status"
 import { tokenInfo, tokenAccountInfo, getTokeHolders } from "./commands/readOps/status"
 import { mintToken } from "./commands/writeOps/mint";
-import { transferToken } from "./commands/writeOps/transfer";
+import { transferToken, batchTransfer } from "./commands/writeOps/transfer";
 import * as utils from "./utils/utils"
+import { poolInfo, getPoolPrice, getPoolStats } from "./commands/readOps/poolInfo"
 // import { Keypair, PublicKey } from "@solana/web3.js";
 
 export interface CliContext {
@@ -28,7 +29,6 @@ export interface CliContext {
 }
 
 // We also provide the primary features via step-by-step prompt back and forth
-// TODO : Complete here
 program
     .name("ita-toolkit")
     .description("ITA Token tool for token operations")
@@ -69,27 +69,42 @@ export const mintCommand = program.command("mint") // ✅ Done
     .description("Mint tokens to a specified address")
     .description("The default and valid destination for minting is admin, if you want to have another destination you should pass the address in --to option, and the admin will transfer it to that address.")
 
-export const transferCommand = program.command("transfer")
+export const transferCommand = program.command("transfer") // ✅ Done
     .option("-t --to <string>", "The address of the receiver")
     .option("-a --amount <number>", "The amount of tokens to mint")
     .description("transfer token from the admin wallet to the chosen destination")
 
+export const batchTransfercommand = transferCommand.command("batch") // ✅ Done
+    .option("-f --file <string>")
+    .description("transfering SPL token from admin wallet to the wallet accounts declared in the file")
+
 export const burnCommand = program.command("burn")
-export const batchTransfercommand = transferCommand.command("batch").option("-f --file <string>")
 export const createATACommand = program.command("create-account").option("-o --owner <address", "The owner of the Associated Token Account")
 export const closeATACommand = program.command("close-account").option("-a --address <string", "The address of Associated Token Account to close for reclaiming rent")
 export const setAuthorityCommand = program.command("set-authority").option("-a --address", "The authority address")
- 
+
 export const mixerOwnerCommand = program.command("mixer") // with --wallets option
 
 // Operations on Raydium Liquidity Pool
 export const poolCommand = program.command("pool")
-export const poolInfoCommand = poolCommand.command("info").description("Get Pool Details (reserves, fee, tier, liquidity")
+export const poolInfoCommand = poolCommand.command("info") // ✅ Done
+    .option("--poolid <string>", "The Raydium Pool ID related to your token")
+    .description("Get Whole Pool Details (reserves, fee, tier, liquidity")
+
+export const priceCommand = program.command("price") // ✅ Done
+    .option("--poolid <string>", "The Raydium Pool ID related to your token")
+    .description("Get current token price from pool")
+
+export const priceHistory = priceCommand.command("history")
+    .option("--poolid <string>", "The Raydium Pool ID related to your token")
+    .description("historical price data (24h, 7d, 30d)")
+
 export const poolList = poolCommand.command("list").description("List of all pools containing ITA Token")
-export const priceCommand = program.command("price").description("Get current token price from pool")
-export const priceHistory = priceCommand.command("history").description("historical price data (24h, 7d, 30d")
-export const poolStatsCommand = poolCommand.command("stats").description("Trading volume, fees earned, TVL")
-export const poolAPRCommand = poolCommand.command("apr").description("Calculate current APR/APY")
+export const poolStatsCommand = poolCommand.command("stats")
+    .option("--poolid <string>", "The Raydium Pool ID related to your token")
+    .description("Trading volume, fees earned, TVL")
+    
+// export const poolAPRCommand = poolCommand.command("apr").description("Calculate current APR/APY")
 
 // Raydium Pool Write Operations
 export const poolAddLiquidityCommand = poolCommand.command("add").option("--amountA <number>").option("--amountB <number>").description("Add liquidity to CLMM pool")
@@ -107,7 +122,7 @@ export const holderGrowthCommand = program.command("growth").description("track 
 export const whaleWatchCommand = program.command("whales").description("Monitor large holders activity")
 export const portfolioCommand = program.command("portfolio").description("Your complete ITA token portfolio value")
 
-// Watcher and Alerting 
+// Watcher and Alerting
 export const watchPriceCommand = program.command("watch").command("price").description("Real-time monitoring of price")
 export const alertPriceCommand = program.command("set") // TODO : implement alert configuration 
 
@@ -133,7 +148,6 @@ export const setConfigCommand = configCommand
 
 const setup = (): CliContext => {
     const conf = configs.load()
-    consola.info(`Using cluster: ${conf.cluster_url}`)
     const connection = new anchor.web3.Connection(conf.cluster_url, "confirmed");
 
     const adminKeypair = utils.getAdminKeypair()
@@ -177,6 +191,12 @@ const main = async() => {
 
     mintCommand.action(async(options) => await mintToken(cctx, options))
     transferCommand.action(async(options) => await transferToken(cctx, options))
+    batchTransfercommand.action(async(options) => await batchTransfer(cctx, options))
+
+    poolInfoCommand.action(async(options) => await poolInfo(cctx, options))
+    priceCommand.action(async(options) => await getPoolPrice(cctx, options))
+    poolStatsCommand.action(async(options) => await getPoolStats(cctx, options))
+    // priceHistory.action(async(options) => await getPriceHistory(cctx, options))
 }
 
 main()

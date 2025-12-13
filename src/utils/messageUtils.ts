@@ -32,3 +32,16 @@ export const startStep = (message: string) => consola.start(message);
 
 export const explorerLink = (signature: string, cluster: string = "devnet") =>
     `https://explorer.solana.com/tx/${signature}?cluster=${cluster}`;
+
+export const formatNumber = (num: number): string => {
+    if (num === null || num === undefined || isNaN(num)) return 'N/A';
+    if (num >= 1e9) return `${(num / 1e9).toFixed(2)}B`;
+    if (num >= 1e6) return `${(num / 1e6).toFixed(2)}M`;
+    if (num >= 1e3) return `${(num / 1e3).toFixed(2)}K`;
+    return num.toFixed(4);
+};
+
+export const formatPercentage = (num: number): string => {
+    if (num === null || num === undefined || isNaN(num)) return 'N/A';
+    return `${(num * 100).toFixed(2)}%`;
+};

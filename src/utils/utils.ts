@@ -18,3 +18,13 @@ export const writeToFile = async (filePath: string, content: string[]) => {
     const contentWithNewlines = content.join('\n')
     fs.writeFileSync(filePath, contentWithNewlines)
 }
+
+export const readFromFile = async(filePath: string): Promise<string> => {
+    const content = fs.readFileSync(filePath, "utf-8")
+    return content    
+}
+
+export const readFromFileLineByLine = async(filePath: string): Promise<string[]> => {
+    const content = await readFromFile(filePath)
+    return content.split(/\r?\n/);
+}
