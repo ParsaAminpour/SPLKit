@@ -139,7 +139,6 @@ export const getPoolInfo = async(poolId: string, cluster: string = "devnet"): Pr
     }
 }
 
-
 const displayPoolInfo = (poolInfo: PoolInfo) => {    
     const basicTable = new Table({
         head: ['Property', 'Value'],
@@ -163,14 +162,15 @@ const displayPoolInfo = (poolInfo: PoolInfo) => {
         head: ['Config Property', 'Value'],
         style: { head: ['cyan'] }
     });
+    // TODO: fix the data in here
     configTable.push(
         ['Config ID', poolInfo.poolConfig.id],
         ['Index', poolInfo.poolConfig.index.toString()],
-        ['Protocol Fee Rate', formatPercentage(poolInfo.poolConfig.protocolFeeRate)],
-        ['Trade Fee Rate', formatPercentage(poolInfo.poolConfig.tradeFeeRate)],
-        ['Fund Fee Rate', formatPercentage(poolInfo.poolConfig.fundFeeRate)],
-        ['Creator Fee Rate', formatPercentage(poolInfo.poolConfig.creatorFeeRate)],
-        ['Create Pool Fee', poolInfo.poolConfig.createPoolFee]
+        ['Protocol Fee Rate', formatPercentage(poolInfo.poolConfig.protocolFeeRate/constant.BPS_RATIO)],
+        ['Trade Fee Rate', formatPercentage(poolInfo.poolConfig.tradeFeeRate/constant.BPS_RATIO)],
+        ['Fund Fee Rate', formatPercentage(poolInfo.poolConfig.fundFeeRate/constant.BPS_RATIO)],
+        ['Creator Fee Rate', formatPercentage(poolInfo.poolConfig.creatorFeeRate/constant.BPS_RATIO)],
+        ['Create Pool Fee', Number(poolInfo.poolConfig.createPoolFee)/constant.BPS_RATIO]
     );
     consola.box('⚙️  Pool Configuration');
     console.log(configTable.toString());

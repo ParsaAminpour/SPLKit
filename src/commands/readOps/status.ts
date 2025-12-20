@@ -36,18 +36,24 @@ export const tokenInfo = async(cctx: CliContext) => {
       console.log(table.toString())
 }
 
-export const getATABalance= async(cctx: CliContext, options: any): Promise<number> => {
-    const userATA = await getAssociatedTokenAddress(
-        cctx.itaTokenMintPDA, 
-        new PublicKey(options.address), 
-    )
-    let balance = 0
-    try {
-        balance = Number((await cctx.connection.getTokenAccountBalance(userATA)).value.amount) / 1e9
-    } catch (error) {
-        consola.warn(`User ATA not found, you need to create it first`)
-    }
-    consola.success(`Balance of ${options.address}: ${balance.toString()}`)
+// NOTE : userWalletAccount is the user wallet account address, not his associated token address
+export const getUserTokenBalance = async(cctx: CliContext, userWalletAccount: PublicKey): Promise<number> => {
+      const userATA = await getAssociatedTokenAddress(
+          cctx.itaTokenMintPDA, 
+          new PublicKey(userWalletAccount), 
+      )
+      let balance = 0
+      try {
+          balance = Number((await cctx.connection.getTokenAccountBalance(userATA)).value.amount)
+      } catch (error) {
+          consola.warn(`User ATA not found, you need to create it first`)
+      }
+      return balance
+}
+
+export const getATABalanceHandler= async(cctx: CliContext, options: any): Promise<number> => {
+    const balance = await getUserTokenBalance(cctx, options.address)
+    consola.success(`Balance of ${options.address}: ${(balance/1e9).toString()}`)
     // return Number(balance.value.amount.toString())
     return 0
 }

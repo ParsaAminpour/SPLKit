@@ -29,3 +29,20 @@ export const confirmTransaction = async (
     }
     throw new Error(`Transaction confirmation timeout after ${timeout}ms`);
   }
+
+// NOTE: The baseURL must be from Helius
+export const getPriorityFeeInfo = async(baseUrl: string): Promise<number> => {
+    const response = await fetch(baseUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          method: 'getPriorityFeeEstimate',
+          params: [{
+            accountKeys: ['11111111111111111111111111111112'], // System Program
+            options: { recommended: true }
+          }]
+        })
+      }) as any;
+      const { priorityFeeEstimate } = await response.json().result;
+      return priorityFeeEstimate
+}

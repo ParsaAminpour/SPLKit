@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { program } from "commander";
 import { ITAConfiguration } from "./configs/configs";
 import { AnchorProvider, Program, web3, Wallet } from "@coral-xyz/anchor";
@@ -9,12 +10,15 @@ import { consola } from "consola"
 import { getConfig, setConfig } from "./commands/readOps/configs";
 import { configs } from "./commands/readOps/configs";
 import * as constant from "./commands/constants"
-import { getATABalance } from "./commands/readOps/status"
+import { getATABalanceHandler } from "./commands/readOps/status"
 import { tokenInfo, tokenAccountInfo, getTokeHolders } from "./commands/readOps/status"
 import { mintToken } from "./commands/writeOps/mint";
 import { transferToken, batchTransfer } from "./commands/writeOps/transfer";
 import * as utils from "./utils/utils"
 import { poolInfo, getPoolPrice, getPoolStats } from "./commands/readOps/poolInfo"
+import { depositToPool } from "./commands/writeOps/deposit"
+import { showFailureAndReturn } from "./utils/messageUtils";
+import { swapITATokenHandler } from "./commands/writeOps/swap";
 // import { Keypair, PublicKey } from "@solana/web3.js";
 
 export interface CliContext {
@@ -27,6 +31,38 @@ export interface CliContext {
     // getConnectionCluster(): string,
     // getConfigs(): ITAConfiguration
 }
+const setup = (): CliContext => {
+    const conf = configs.load()
+    const connection = new anchor.web3.Connection(conf.cluster_url, "confirmed");
+
+    const adminKeypair = utils.getAdminKeypair()
+    conf.admin_wallet_keypair = adminKeypair
+    const adminWallet = new Wallet(adminKeypair)
+
+    const provider = new anchor.AnchorProvider(connection, adminWallet, {
+        commitment: "confirmed",
+    });
+    anchor.setProvider(provider)
+
+    if (!fs.existsSync("ita_token.json")) throw new Error("file ita_token.json doesn't exist")
+    const ITATokenIDL = JSON.parse(fs.readFileSync("ita_token.json", "utf-8")) as ItaToken    
+    const program = new Program(ITATokenIDL as anchor.Idl)
+
+    const [itaTokenMintPDA] = PublicKey.findProgramAddressSync(
+        [Buffer.from(constant.ITA_TOKEN_SEED)],
+        program.programId
+    );
+
+    const cctx: CliContext = {
+        program: program,
+        connection: connection,
+        provider: provider,
+        itaTokenMintPDA: itaTokenMintPDA,
+        configs: conf
+    }
+    return cctx
+}
+const cctx = setup()
 
 // We also provide the primary features via step-by-step prompt back and forth
 program
@@ -54,6 +90,14 @@ program
             }
         }
     })
+
+// TODO : All the commands have to contain --prior flag for sending transaction with priority fee
+
+// TODO : The pool id should be added to the configs, this allow us to remove the --poolid option from the commands
+
+// ‌TODO : Add pre-action operations for each commands
+
+// TODO : Complete the command descriptions for the user guide
 
 export const tokenInfoCommand = program.command("token-info") // ✅ Done
 export const supply = program.command("supply")
@@ -88,30 +132,53 @@ export const mixerOwnerCommand = program.command("mixer") // with --wallets opti
 // Operations on Raydium Liquidity Pool
 export const poolCommand = program.command("pool")
 export const poolInfoCommand = poolCommand.command("info") // ✅ Done
-    .option("--poolid <string>", "The Raydium Pool ID related to your token")
+    .option("--poolid <string>", "The Raydium Pool ID related to your token", cctx.configs.raydium_pool_id)
     .description("Get Whole Pool Details (reserves, fee, tier, liquidity")
 
 export const priceCommand = program.command("price") // ✅ Done
     .option("--poolid <string>", "The Raydium Pool ID related to your token")
     .description("Get current token price from pool")
 
+export const poolStatsCommand = poolCommand.command("stats") // ✅ Done
+    .option("--poolid <string>", "The Raydium Pool ID related to your token")
+    .description("Trading volume, fees earned, TVL")
+
 export const priceHistory = priceCommand.command("history")
     .option("--poolid <string>", "The Raydium Pool ID related to your token")
     .description("historical price data (24h, 7d, 30d)")
 
 export const poolList = poolCommand.command("list").description("List of all pools containing ITA Token")
-export const poolStatsCommand = poolCommand.command("stats")
-    .option("--poolid <string>", "The Raydium Pool ID related to your token")
-    .description("Trading volume, fees earned, TVL")
-    
+
 // export const poolAPRCommand = poolCommand.command("apr").description("Calculate current APR/APY")
 
 // Raydium Pool Write Operations
-export const poolAddLiquidityCommand = poolCommand.command("add").option("--amountA <number>").option("--amountB <number>").description("Add liquidity to CLMM pool")
-export const poolRemoveLiquidityCommand = poolCommand.command("remove").option("--position-id <string>") // replace appropriate command for CPMM
+export const poolAddLiquidityCommand = poolCommand.command("add") // ✅ Done
+    .requiredOption("--amount <number>", "amount of token you want to add to the liquidity pool, should be in normal format like 1 base token if you want to add one")
+    .requiredOption("--base", "is this amount associated to the base asset or not")
+    .option("--quote", "is this amount associated to the quote asset or not")
+    .option("--slippage <number>", "Slippage for adding liquidity in ui format like 2.5 or 3 without any percentage icon, default is 2.5(%)")
+    .hook("preAction", (thisCommand) => {
+        const opts = thisCommand.opts();
+        const isBase = !!opts.base;
+        const isQuote = !!opts.quote;
+        if (isBase === isQuote) showFailureAndReturn("You must specify exactly one of --base or --quote (but not both).");
+    })
+    .description("Add liquidity to CLMM pool")
+
 export const createPositionCommand = poolCommand.command("create-position")
+    .option("--amountA <number>")
+    .option("--amountB <number>")
+    .description("create a CPMM liquidity pool for the ITA Token")
+
+export const swapCommand = program.command("swap") // ✅ Done
+    .requiredOption("--amount <amount>", "Amount to swap", (value) => parseFloat(value))
+    .option("-s --slippage <slippage>", "Slippage for the swap")
+    .requiredOption("--base")
+    .description("Swap ITA Token with SOL or vice versa using the Raydium CPMM liquidity pool")
+
+export const poolRemoveLiquidityCommand = poolCommand.command("remove").option("--position-id <string>") // replace appropriate command for CPMM
 export const poolCollectFeesCommand = poolCommand.command("collect-fees").description("Claim earned trading fees")
-export const poolClosePosition = poolCommand.command("close").option("--position-id <string") // replace appropriate command for CPMM
+export const poolClosePosition = poolCommand.command("close").option("--position-id <string>") // replace appropriate command for CPMM
 
 // Analytics and Monitoring
 export const txListCommand = program.command("tx").command("list").description("Recent token transactions")
@@ -133,6 +200,9 @@ export const transactionsSnapshotCommand = snapshotCommand.command("transactions
 
 // The strategy mean user can define a scheduled action (based on these available operations) in autonomous manner, it's so abstract rn, needs to be complete
 export const strategyCommand = program.command("strategy")
+export const predict = program.command("predict")
+    .option("-d --direction [DIRECTION]", "predict for buy or sell", "buy")
+    .option("--amount-in <number>", "amount of token you want to buy or sell to predict the new price")
 
 // The Cli tool configuration management
 export const configCommand = program.command("config")
@@ -142,48 +212,16 @@ export const setConfigCommand = configCommand
     .option("-c --cluster <string>", "Solana Cluster that tool should use")
     .option("--token-program-id <string>", "The ITA token program ID")
     .option("--token-mint-pda <string>", "ITA Token Mint PDA address")
+    .option("--poolid <string>", "ITA Token Create CPMM Pool ID on Raydium")
     .option("--cluster-url <string>", "custom url of the cluster")
     .description("The config of the tool you are interacting")
 
 
-const setup = (): CliContext => {
-    const conf = configs.load()
-    const connection = new anchor.web3.Connection(conf.cluster_url, "confirmed");
-
-    const adminKeypair = utils.getAdminKeypair()
-    conf.admin_wallet_keypair = adminKeypair
-    const adminWallet = new Wallet(adminKeypair)
-
-    const provider = new anchor.AnchorProvider(connection, adminWallet, {
-        commitment: "confirmed",
-    });
-    anchor.setProvider(provider)
-
-    if (!fs.existsSync("ita_token.json")) throw new Error("file ita_token.json doesn't exist")
-    const ITATokenIDL = JSON.parse(fs.readFileSync("ita_token.json", "utf-8")) as ItaToken    
-    const program = new Program(ITATokenIDL as anchor.Idl)
-
-    const [itaTokenMintPDA] = PublicKey.findProgramAddressSync(
-        [Buffer.from(constant.ITA_TOKEN_SEED)],
-        program.programId
-    );
-
-    const cctx: CliContext = {
-        program: program,
-        connection: connection,
-        provider: provider,
-        itaTokenMintPDA: itaTokenMintPDA,
-        configs: conf
-    }
-    return cctx
-}
-
 const main = async() => {
-    const cctx: CliContext = setup()
     getConfigCommand.action(() => getConfig())
     setConfigCommand.action((options) => setConfig(options))
 
-    balanceCommand.action(async(options) => {await getATABalance(cctx, options)})
+    balanceCommand.action(async(options) => {await getATABalanceHandler(cctx, options)})
     // token metadata extracted from Metaplex
     tokenInfoCommand.action(() => tokenInfo(cctx))
     tokenAccountInfoCommand.action(async(options) => await tokenAccountInfo(cctx, options))
@@ -197,6 +235,10 @@ const main = async() => {
     priceCommand.action(async(options) => await getPoolPrice(cctx, options))
     poolStatsCommand.action(async(options) => await getPoolStats(cctx, options))
     // priceHistory.action(async(options) => await getPriceHistory(cctx, options))
+
+    poolAddLiquidityCommand.action(async(options) => await depositToPool(cctx, options))
+
+    swapCommand.action(async(options) => await swapITATokenHandler(cctx, options))
 }
 
 main()

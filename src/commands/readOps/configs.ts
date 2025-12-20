@@ -11,6 +11,7 @@ export const getConfig = () => {
         cluster: conf.cluster,
         tokenProgramId: conf.ita_token_program_id,
         tokenMintPda: conf.ita_token_mint_pda,
+        raydiumPoolID: conf.raydium_pool_id,
         adminWallet: conf.admin_wallet_keypair?.publicKey.toString(),
         clusterURL: conf.cluster_url,
     });
@@ -23,6 +24,7 @@ export const setConfig = (options: any) => {
             options.cluster,
             options.tokenProgramId,
             options.tokenMintPda,
+            options.poolid,
             options.clusterUrl
         )
     } catch(error) {
@@ -35,6 +37,7 @@ export const setConfig = (options: any) => {
         cluster: newConf.cluster,
         tokenProgramId: newConf.ita_token_program_id,
         tokenMintPda: newConf.ita_token_mint_pda,
+        raydiumPoolID: newConf.raydium_pool_id,
         adminWallet: newConf.admin_wallet_keypair?.publicKey,
         clusterUrl: newConf.cluster_url
     });

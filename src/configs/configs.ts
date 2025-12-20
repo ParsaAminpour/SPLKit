@@ -8,6 +8,7 @@ export interface ITAConfiguration {
     cluster: string,
     ita_token_program_id: string,
     ita_token_mint_pda: string,
+    raydium_pool_id: string,
     admin_wallet_keypair?: Keypair,
     cluster_url: string,
 }
@@ -48,6 +49,7 @@ export class ConfigManager {
         _cluster?: string,
         _ita_token_program_id?: string,
         _ita_token_mint_pda?: string,
+        _raydium_pool_id?: string,
         _cluster_url?: string,
     ): ITAConfiguration {
         let conf: ITAConfiguration
