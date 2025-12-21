@@ -1,3 +1,4 @@
+import { NATIVE_MINT } from "@solana/spl-token";
 import { consola } from "consola";
 
 type Detail = string | string[];
@@ -76,7 +77,98 @@ export const confirmOrExit = async (ask: string, noCallbackMessage: string) => {
         }
     } catch (error) {
         // Handle Ctrl+C or other interruptions
-        consola.info("\nSwap operation has been cancelled.");
+        consola.info("\nOperation has been cancelled.");
         process.exit(0);
     }
 }
+
+export const transferCallbackMessage = (isFailed: boolean, txId?: string) => {
+    if (isFailed) {
+        const message = "Transfer Transaction Failed! ❌";
+        const details = txId 
+            ? `Transaction ID: ${txId}\n${explorerLink(txId)}`
+            : "No transaction ID available";
+        showFailure(message, details);
+    } else {
+        const message = "Transfer Transaction Success! 🎉";
+        const details = txId 
+            ? explorerLink(txId)
+            : undefined;
+        showSuccess(message, details);
+    }
+}
+
+export const transferNativeCallbackMessage = (isFailed: boolean, txId?: string) => {
+    if (isFailed) {
+        const message = "Transfer Transaction Failed! ❌";
+        const details = txId 
+            ? `Transaction ID: ${txId}\n${explorerLink(txId)}`
+            : "No transaction ID available";
+        showFailure(message, details);
+    } else {
+        const message = "Transfer Transaction Success! 🎉";
+        const details = txId 
+            ? explorerLink(txId)
+            : undefined;
+        showSuccess(message, details);
+    }
+}
+
+export const mintCallbackMessage = (isFailed: boolean, txId?: string) => {
+    if (isFailed) {
+        const message = "Mint Transaction Failed! ❌";
+        const details = txId 
+            ? `Transaction ID: ${txId}\n${explorerLink(txId)}`
+            : "No transaction ID available";
+        showFailure(message, details);
+    } else {
+        const message = "Mint Transaction Success! 🎉";
+        const details = txId 
+            ? explorerLink(txId)
+            : undefined;
+        showSuccess(message, details);
+    }
+}
+
+export const swapCallbackMessage = (isFailed: boolean, txId?: string, reason?: string) => {
+    if (isFailed) {
+        const message = "Swap Transaction Failed! ❌";
+        const details = reason ? `Reason: ${reason}` : "No transaction ID available";
+        showFailure(message, details);
+    } else {
+        const message = "Swap Transaction Success! 🎉";
+        const details = txId 
+            ? explorerLink(txId)
+            : undefined;
+        showSuccess(message, details);
+    }
+}
+
+export const strategyCallbackMessage = (isFailed: boolean, reason?: string) => {
+    if (isFailed) {
+        const message = "Strategy Execution Failed! ❌";
+        const details = reason ? `Reason: ${reason}` : "One or more operations in the strategy failed";
+        showFailure(message, details);
+    } else {
+        const message = "Strategy Execution Success! 🎉";
+        showSuccess(message);
+    }
+}
+
+export const transferProcessingMessage = (from: string, to: string, amount: number) => {
+    const fromShort = `${from.slice(0, 4)}...${from.slice(-4)}`;
+    const toShort = `${to.slice(0, 4)}...${to.slice(-4)}`;
+    startStep(`Transfering ${amount} amount of token from ${fromShort} to ${toShort}`);
+}
+
+export const mintProcessingMessage = (to: string, amount: number) => {
+    const toShort = `${to.slice(0, 4)}...${to.slice(-4)}`;
+    startStep(`Minting ${amount} amount of token to ${toShort}`);
+}
+
+export const swapProcessingMessage = (inputMintPDA: string, amount: number) => {
+    const [inputMintSymbol, outputMintSymbol] = inputMintPDA == NATIVE_MINT.toBase58() ? ["SOL", "ITA"] : ["ITA", "SOL"]
+    startStep(`Swapping ${amount} amount from $${inputMintSymbol} to $${outputMintSymbol}`);
+}
+
+export const strategyProcessingMessage = () => startStep("Executing strategy...");

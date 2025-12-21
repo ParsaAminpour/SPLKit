@@ -14,6 +14,12 @@ export const getAdminKeypair = (): Keypair => {
         return Keypair.fromSecretKey(Buffer.from(admingPrivateKey))
 }
 
+export const loadKeypair = (filePath: string): Keypair => {
+    if (!fs.existsSync(filePath)) throw new Error("file wallet.json doesn't exist")
+        const admingPrivateKey = JSON.parse(fs.readFileSync(filePath, "utf-8"))
+        return Keypair.fromSecretKey(Buffer.from(admingPrivateKey))
+}
+
 export const writeToFile = async (filePath: string, content: string[]) => {
     const contentWithNewlines = content.join('\n')
     fs.writeFileSync(filePath, contentWithNewlines)

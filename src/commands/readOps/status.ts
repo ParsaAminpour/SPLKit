@@ -24,16 +24,32 @@ export const tokenInfo = async(cctx: CliContext) => {
           itaTokenMintPDA.toBuffer(),
         ],
         constant.TOKEN_METADATA_PROGRAM_ID
-      );
+    );
+    
+    const reqBody = {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: '{"jsonrpc":"2.0","id":"1","method":"getTokenAccounts","params":{"mint":"3Has4Q1yxdhQgAbByNLpP4EcWDn1nJUpqfSQg3d2W1Am"}}'
+    };
+    let tokenOwnersData: Array<any>;
+    try {
+        const response = await fetch(cctx.configs.cluster_url, reqBody);
+        const fetchedData = await response.json() as any;
+        tokenOwnersData = fetchedData["result"]["token_accounts"];
+    } catch (error: any) {
+        showFailure(error.message)
+        return
+    }
 
-      const mintAccount = await getMint(cctx.connection, itaTokenMintPDA)
-      const table = new Table()
-      table.push(["mintAddress", mintAccount.address.toString()])
-      table.push(["tokenSupply", `${mintAccount.supply.toString()} ~ ${mintAccount.supply / BigInt(1e9)}`])
-      table.push(["mintAuthority", mintAccount.mintAuthority?.toString()])
-      table.push(["freezeAuthority", mintAccount.freezeAuthority?.toString()])
-      table.push(["metadataAccountPDA", metadataAccountPDA.toString()])
-      console.log(table.toString())
+    const mintAccount = await getMint(cctx.connection, itaTokenMintPDA)
+    const table = new Table()
+    table.push(["mintAddress", mintAccount.address.toString()])
+    table.push(["tokenSupply", `${mintAccount.supply.toString()} ~ ${mintAccount.supply / BigInt(1e9)}`])
+    table.push(["holdersCount", tokenOwnersData.length])
+    table.push(["mintAuthority", mintAccount.mintAuthority?.toString()])
+    table.push(["freezeAuthority", mintAccount.freezeAuthority?.toString()])
+    table.push(["metadataAccountPDA", metadataAccountPDA.toString()])
+    console.log(table.toString())
 }
 
 // NOTE : userWalletAccount is the user wallet account address, not his associated token address
@@ -79,12 +95,7 @@ export const getTokeHolders = async(cctx: CliContext, options: any) => {
       const tokenOwnersData: Array<any> = fetchedData["result"]["token_accounts"];
       let data = []
       for(const owner of tokenOwnersData) {
-        const ownerATA = await getAssociatedTokenAddress(
-          cctx.itaTokenMintPDA,
-          new PublicKey(owner.owner)
-        )
-        const balance = (await cctx.connection.getTokenAccountBalance(ownerATA)).value.amount
-        data.push({owner: owner.owner, balance: `${Number(balance) / 1e9}`})
+        data.push({owner: owner.owner, balance: `${Number(owner.amount) / 1e9}`})
       }
       data.sort((b1, b2) => Number(b2.balance) - Number(b1.balance))
 

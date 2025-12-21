@@ -13,19 +13,19 @@ import { Raydium } from '@raydium-io/raydium-sdk-v2'
 import { initSdk } from '../../configs/poolConfig'
 import { CliContext } from '@/index'
 import consola from 'consola'
-import { confirmOrExit, showWarning } from '../../utils/messageUtils'
+import { confirmOrExit, showWarning, swapCallbackMessage, swapProcessingMessage } from '../../utils/messageUtils'
+import { Result, Ok, Err } from '../../types/share'
 // import { apiSwapBaseOut } from './helpers'
 
-
-enum SwapDirection {
+export enum SwapDirection {
     BUY, // Buy ITA Token  ~ Sell SOL
     SELL // Sell ITA Token ~ Buy SOL
-} 
+}
 
-export const swapITAToken = async(cctx: CliContext, raydium: Raydium, poolId: string, amountIn: number, direction: SwapDirection) => {
+// NOTE : mintA is typically refers to native mint aka. SOL
+export const swapITAToken = async(cctx: CliContext, raydium: Raydium, poolId: string, amountIn: number, direction: SwapDirection, askBeforeAction: boolean): Promise<Result<string>> => {
     if (amountIn < 100_000) showWarning("You are probably using 'amountIn' without considering the token decimals; this may cause the swap to fail.")
     const [inputSymbol, outputSymbol] = direction == SwapDirection.BUY ? ["SOL", "ITA"] : ["ITA", "SOL"];
-    consola.info(`Processing swap of ${amountIn} ${inputSymbol} for ${outputSymbol} Token...\n`);
     const inputAmount = new BN(amountIn)
     const inputMint = direction == SwapDirection.BUY ? NATIVE_MINT.toBase58() : cctx.itaTokenMintPDA.toBase58()
 
@@ -36,7 +36,7 @@ export const swapITAToken = async(cctx: CliContext, raydium: Raydium, poolId: st
     if (raydium.cluster === 'mainnet') {
         const data = await raydium.api.fetchPoolById({ ids: poolId })
         poolInfo = data[0] as ApiV3PoolInfoStandardItemCpmm
-        if (!isValidCpmm(poolInfo.programId)) throw new Error('target pool is not CPMM pool')
+        if (!isValidCpmm(poolInfo.programId)) return Err('target pool is not CPMM pool')
         rpcData = await raydium.cpmm.getRpcPoolInfo(poolInfo.id, true)
     } else {
         const data = await raydium.cpmm.getPoolInfoFromRpc(poolId)
@@ -46,7 +46,7 @@ export const swapITAToken = async(cctx: CliContext, raydium: Raydium, poolId: st
     }
 
     if (inputMint !== poolInfo.mintA.address && inputMint !== poolInfo.mintB.address)
-      throw new Error('input mint does not match pool')
+      return Err('input mint does not match pool')
     
     const baseIn = direction == SwapDirection.BUY && NATIVE_MINT.toBase58() === poolInfo.mintA.address // base is typically refers to SOL
     const [inputDecimal, outputDecimal] = direction == SwapDirection.BUY ? [poolInfo.mintA.decimals, poolInfo.mintB.decimals] : [poolInfo.mintB.decimals, poolInfo.mintA.decimals]
@@ -66,14 +66,16 @@ export const swapITAToken = async(cctx: CliContext, raydium: Raydium, poolId: st
     const swapResultAmountOut = swapResult.outputAmount.toNumber()
     const tradeFee = swapResult.tradeFee.toNumber()
 
-    consola.info("Swap preview based on your input:");
-    consola.log(`- You send (input amount): ${swapResultAmountIn} ~ ${swapResultAmountIn / (10 ** inputDecimal)} ${inputSymbol}`);
-    consola.log(`- You receive (output amount): ${swapResultAmountOut} ~ ${swapResultAmountOut / (10 ** outputDecimal)} ${outputSymbol}`);
-    consola.log(`- Estimated trade fee: ${tradeFee.toString()} ~ ${tradeFee / (10 ** inputDecimal)} SOL\n`);
-    await confirmOrExit(
-      "Do you want to proceed with the swap using the above data?",
-      "Swap operation has been terminated by the user."
-    )
+    if (askBeforeAction) {
+      consola.info("Swap preview based on your input:");
+      consola.log(`- You send (input amount): ${swapResultAmountIn} ~ ${swapResultAmountIn / (10 ** inputDecimal)} ${inputSymbol}`);
+      consola.log(`- You receive (output amount): ${swapResultAmountOut} ~ ${swapResultAmountOut / (10 ** outputDecimal)} ${outputSymbol}`);
+      consola.log(`- Estimated trade fee: ${tradeFee.toString()} ~ ${tradeFee / (10 ** inputDecimal)} SOL\n`);
+      await confirmOrExit(
+        "Do you want to proceed with the swap using the above data?",
+        "Swap operation has been terminated by the user."
+      )
+    }
     
     const payer = cctx.configs.admin_wallet_keypair!.publicKey
     const { execute, /*transaction*/ } = await raydium.cpmm.swap({
@@ -100,14 +102,18 @@ export const swapITAToken = async(cctx: CliContext, raydium: Raydium, poolId: st
     })
 
     const { txId } = await execute({ sendAndConfirm: true })
-    consola.success(`swapped: ${inputSymbol} to ${outputSymbol}\nhttps://explorer.solana.com/tx/${txId}?cluster=${cctx.configs.cluster}`,)
+    return Ok(txId)
 }
 
 export const swapITATokenHandler = async(cctx: CliContext, options: any) => {
     const raydium = await initSdk(cctx)
     try {
       const direction = options.base ? SwapDirection.BUY : SwapDirection.SELL
-      await swapITAToken(cctx, raydium, cctx.configs.raydium_pool_id, options.amount, direction)
+      const inputPDA = direction == SwapDirection.BUY ? NATIVE_MINT.toBase58() : cctx.configs.ita_token_mint_pda
+      swapProcessingMessage(inputPDA, options.amount)
+      const result = await swapITAToken(cctx, raydium, cctx.configs.raydium_pool_id, options.amount, direction, true)
+      !result.ok ? swapCallbackMessage(true, "", result.error) : swapCallbackMessage(false, result.value)
+
     } catch (error) {
       console.log(error)
     }
