@@ -33,69 +33,67 @@ program
 
 
 // TODO : All the commands have to contain --prior flag for sending transaction with priority fee
-
-// TODO : The pool id should be added to the configs, this allow us to remove the --poolid option from the commands
-
 // ‌TODO : Add pre-action operations for each commands
-
 // TODO : Complete the command descriptions for the user guide
-
 // TODO : showing token stats via diagrams and charts
-
-// TODO : Add winston logger to record all operations logs
+// TODO : add pre action hook for each one
 
 export const createCommands = (cctx: CliContext) => {
-    const tokenInfoCommand = program.command("token-info") // ✅ Done
-    const supply = program.command("supply")
-    const balanceCommand = program.command("balance").option("-a --address <string>", "address of the wallet for checking balance") // ✅ Done
-    const tokenAccountInfoCommand = program.command("account-info").option("-a --address <string>", "The token account address you want know about it") // ✅ Done
-    const topHoldersCommand = program.command("top-holders") // ✅ Done
+    const tokenInfoCommand = program.command("token-info")
+        .description("Show ITA token metadata: mint address, supply (raw + ui), holder count, authorities, and metadata PDA")
+        
+    const balanceCommand = program.command("balance")
+        .option("-a --address <string>", "Wallet owner public key to check (not the ATA)")
+        .description("Show ITA token balance for the provided wallet owner address; outputs human-readable amount using token decimals")
+        
+    const tokenAccountInfoCommand = program.command("account-info")
+        .option("-a --address <string>", "Wallet owner public key; the ATA will be derived")
+        .description("Show the associated token account (ATA) for the provided wallet owner")
+        
+    const topHoldersCommand = program.command("top-holders") 
         .option("-o --output <string>", "write the output to a file with selected path")
-        .description("getting top 10 holders of the token")
+        .description("List top 10 ITA token holders with balances; optionally write to file via --output")
 
-    const mintCommand = program.command("mint") // ✅ Done
-        .option("-t --to <string>", "The address of the receiver")
-        .option("-a --amount <number>", "The amount of tokens to mint")
-        .description("Mint tokens to a specified address")
-        .description("The default and valid destination for minting is admin, if you want to have another destination you should pass the address in --to option, and the admin will transfer it to that address.")
+    const mintCommand = program.command("mint") 
+        .option("-t --to <string>", "Recipient address; omit to mint to the admin wallet")
+        .option("-a --amount <number>", "Amount to mint (UI units, e.g., 1 = one whole token)")
+        .description("Mint ITA tokens to a recipient (defaults to admin if --to is not provided).")
 
     const transferRawCommand = program.command("transfer") 
-    const transferCommand = transferRawCommand // ✅ Done
-        .option("-f, --from-keypair <string>", "The sender keypair json file", "admin")
-        .option("-t, --to <string>", "The address of the receiver")
-        .option("-a, --amount <number>", "The amount of tokens to transfer")
-        .description("transfer ITA token from the --from-keypair wallet to the choosen destination")
+    const transferCommand = transferRawCommand 
+        .option("-f, --from-keypair <string>", "Sender keypair JSON path (defaults to admin)")
+        .option("-t, --to <string>", "Recipient wallet address (owner, not ATA)")
+        .option("-a, --amount <number>", "Amount to transfer in UI units (e.g., 1 = one whole token)")
+        .description("Transfer ITA tokens from the specified sender (default admin) to the recipient")
 
     const nativeTransferCommand = program.command("transfer-native")
-        .option("-f, --from-keypair <string>", "The sender keypair json file", "admin")
-        .option("-t, --to <string>", "The address of the receiver")
-        .option("-a, --amount <number>", "The amount of tokens to mint")
-        .description("transfer SOL from the admin wallet to the chosen destination")
+        .option("-f, --from-keypair <string>", "Sender keypair JSON path (defaults to admin)")
+        .option("-t, --to <string>", "Recipient wallet address")
+        .option("-a, --amount <number>", "Amount of SOL to send (in SOL, e.g., 0.1)")
+        .description("Transfer SOL from the specified sender (default admin) to the recipient wallet")
 
-    const batchTransfercommand = transferCommand.command("batch") // ✅ Done
-        .option("-f --file <string>")
-        .description("transfering SPL token from admin wallet to the wallet accounts declared in the file")
+    const batchTransfercommand = transferCommand.command("batch") 
+        .option("-f --file <string>", "Path to CSV/JSON list of recipients and amounts")
+        .description("Batch transfer ITA tokens from admin to recipients listed in file")
 
-    const burnCommand = program.command("burn")
+    // const burnCommand = program.command("burn") // Not for now
     const createATACommand = program.command("create-account").option("-o --owner <address", "The owner of the Associated Token Account")
-    const closeATACommand = program.command("close-account").option("-a --address <string", "The address of Associated Token Account to close for reclaiming rent")
     const setAuthorityCommand = program.command("set-authority").option("-a --address", "The authority address")
 
-    const mixerOwnerCommand = program.command("mixer") // with --wallets option
 
     // Operations on Raydium Liquidity Pool
     const poolCommand = program.command("pool")
-    const poolInfoCommand = poolCommand.command("info") // ✅ Done
+    const poolInfoCommand = poolCommand.command("info") 
         .option("--poolid <string>", "The Raydium Pool ID related to your token", cctx.configs.raydium_pool_id)
-        .description("Get Whole Pool Details (reserves, fee, tier, liquidity")
+        .description("Show full pool details: reserves, fee tier, liquidity, and pool config")
 
-    const priceCommand = program.command("price") // ✅ Done
+    const priceCommand = program.command("price") 
         .option("--poolid <string>", "The Raydium Pool ID related to your token")
-        .description("Get current token price from pool")
+        .description("Get current ITA price from the Raydium pool (quote/base)")
 
-    const poolStatsCommand = poolCommand.command("stats") // ✅ Done
+    const poolStatsCommand = poolCommand.command("stats") 
         .option("--poolid <string>", "The Raydium Pool ID related to your token")
-        .description("Trading volume, fees earned, TVL")
+        .description("Show pool stats: volume, fees earned, TVL over recent periods")
 
     const priceHistory = priceCommand.command("history")
         .option("--poolid <string>", "The Raydium Pool ID related to your token")
@@ -106,7 +104,7 @@ export const createCommands = (cctx: CliContext) => {
     // const poolAPRCommand = poolCommand.command("apr").description("Calculate current APR/APY")
 
     // Raydium Pool Write Operations
-    const poolAddLiquidityCommand = poolCommand.command("add") // ✅ Done
+    const poolAddLiquidityCommand = poolCommand.command("add") 
         .requiredOption("--amount <number>", "amount of token you want to add to the liquidity pool, should be in normal format like 1 base token if you want to add one")
         .requiredOption("--base", "is this amount associated to the base asset or not")
         .option("--quote", "is this amount associated to the quote asset or not")
@@ -117,19 +115,19 @@ export const createCommands = (cctx: CliContext) => {
             const isQuote = !!opts.quote;
             if (isBase === isQuote) showFailureAndReturn("You must specify exactly one of --base or --quote (but not both).");
         })
-        .description("Add liquidity to CLMM pool")
+        .description("Add liquidity to the Raydium CPMM pool on either the base or quote side with optional slippage control")
 
-    const createPoolCommand = poolCommand.command("create-position") // ✅ Done
+    const createPoolCommand = poolCommand.command("create-position") 
         .option("--amountA <number>")
         .option("--amountB <number>")
-        .description("create a CPMM liquidity pool for the ITA Token")
+        .description("Create a new Raydium CPMM position for ITA with provided token amounts")
 
-    const swapCommand = program.command("swap") // ✅ Done
+    const swapCommand = program.command("swap") 
         .requiredOption("--amount <amount>", "Amount to swap", (value) => parseFloat(value))
         .option("-p --payer <string>", "The payer of the transaction", "admin")
         .option("-s --slippage <slippage>", "Slippage for the swap")
         .requiredOption("--base")
-        .description("Swap ITA Token with SOL or vice versa using the Raydium CPMM liquidity pool")
+        .description("Swap ITA <-> SOL through the Raydium CPMM pool with optional slippage control; payer defaults to admin")
 
     const poolRemoveLiquidityCommand = poolCommand.command("remove").option("--position-id <string>") // replace appropriate command for CPMM
     const poolCollectFeesCommand = poolCommand.command("collect-fees").description("Claim earned trading fees")
@@ -165,31 +163,42 @@ export const createCommands = (cctx: CliContext) => {
             }
         })
         .description(`
-    Execute a batch of operations defined in a strategy file.
+    Execute a batch of operations defined in a JSON strategy file (mandatory).
 
-    Strategy File Format:
-      Operations are separated by semicolons (;) and follow these patterns:
-        
-      mintTo: <destinationAccount> <amount> [timeToExecute]
-      transfer: <fromKp> <toPk> <amount> [timeToExecute]
-      swap: <inputMintPDA> <outputMintPDA> <callerKp> <amount> [timeToExecute]
-        
-      Where:
-        - destinationAccount: Public key address for mint destination
-        - fromKp/toPk: Public key addresses for transfer
-        - inputMintPDA/outputMintPDA: Mint PDA addresses for swap
-        - callerKp/fromKp: File path to keypair JSON file
-        - amount: Token amount (in raw format, considering decimals)
-        - timeToExecute: Optional timestamp (Unix epoch in seconds) - only used with --schedule flag
-        
-      Example strategy file content:
-        mintTo;7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU;1000000
-        transfer;./wallets/wallet1.json;7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU;500000
-        swap;So11111111111111111111111111111111111111112;7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU;./wallets/wallet2.json;1000000;1735689600
-        
-      Note: When --schedule flag is used, operations with timeToExecute will be queued for execution at the specified time.
-            Operations without timeToExecute will execute immediately regardless of the flag.
-            It's recommended to run this tool on an external server if you want to scheduling the tasks.
+    File format (array of operations):
+      [
+        {
+          "id": "unique-op-id",
+          "operation": "mintTo",
+          "destinationAccount": "<pubkey>",
+          "amount": <number>,              // raw amount (respect token decimals)
+          "timeToExecute": <unix_ts?>      // optional, seconds, used with --schedule
+        },
+        {
+          "id": "unique-op-id",
+          "operation": "transfer",
+          "assetPDA": "<mintPDA>",
+          "fromKp": "<path/to/sender.json>",
+          "toPk": "<recipientPubkey>",
+          "amount": <number>,
+          "timeToExecute": <unix_ts?>
+        },
+        {
+          "id": "unique-op-id",
+          "operation": "swap",
+          "inputMintPDA": "<mintPDA_in>",
+          "outputMintPDA": "<mintPDA_out>",
+          "callerKp": "<path/to/payer.json>",
+          "amount": <number>,
+          "timeToExecute": <unix_ts?>
+        }
+      ]
+
+    Execution modes:
+      --schedule : queue ops with timeToExecute for later; others run immediately.
+      --delay    : run ops sequentially with the given delay (seconds) between them.
+
+    Tip: Run scheduling on a reliable host; ensure keypair paths and PDAs are valid.
         `)
 
     const predict = program.command("predict")
@@ -198,7 +207,9 @@ export const createCommands = (cctx: CliContext) => {
 
     // The Cli tool configuration management
     const configCommand = program.command("config")
-    const getConfigCommand = configCommand.command("get").description("The config of the tool you are interacting")
+    const getConfigCommand = configCommand.command("get")
+        .description("Show the current CLI configuration (cluster, mint PDA, pool id, endpoints) so you can confirm settings before running commands")
+        
     const setConfigCommand = configCommand
         .command("set")
         .option("-c --cluster <string>", "Solana Cluster that tool should use")
@@ -206,11 +217,19 @@ export const createCommands = (cctx: CliContext) => {
         .option("--token-mint-pda <string>", "ITA Token Mint PDA address")
         .option("--poolid <string>", "ITA Token Create CPMM Pool ID on Raydium")
         .option("--cluster-url <string>", "custom url of the cluster")
-        .description("The config of the tool you are interacting")
+        .hook("preAction", (thisCommand) => {
+            const opts = thisCommand.opts();
+            if (opts.cluster && (opts.cluster !== "devnet" && opts.cluster !== "mainnet")) showFailureAndReturn("Invalid cluster. Allowed values are 'devnet' or 'mainnet'.");
+            if (opts.clusterUrl && opts.cluster == "devnet") {
+                if (!opts.clusterUrl.includes("devnet")) showFailureAndReturn("Invalid cluster-url. It must contain the keyword 'devnet'.");
+            } else if (opts.clusterUrl && opts.cluster == "mainnet") {
+                if (opts.clusterUrl.includes("devnet")) showFailureAndReturn("Invalid cluster-url. It must contain the keyword 'devnet'.");
+            }
+        })
+        .description("Update CLI configuration (cluster, token program/mint PDAs, Raydium pool id, custom RPC). Validates cluster and RPC url to avoid mismatched environments.")
     
     return {
         tokenInfoCommand,
-        supply,
         balanceCommand,
         tokenAccountInfoCommand,
         topHoldersCommand,
@@ -218,11 +237,8 @@ export const createCommands = (cctx: CliContext) => {
         transferCommand,
         batchTransfercommand,
         nativeTransferCommand,
-        burnCommand,
         createATACommand,
-        closeATACommand,
         setAuthorityCommand,
-        mixerOwnerCommand,
         poolCommand,
         poolInfoCommand,
         priceCommand,
