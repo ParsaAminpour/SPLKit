@@ -32,6 +32,9 @@ export class ConfigManager {
                 if (val == "") throw new Error(`local configuration has not ${key}, please complete the local configuration json file first`) 
             })
             conf.admin_wallet_keypair = utils.getAdminKeypair()
+            if (!conf.cluster_url) {
+                conf.cluster_url = conf.cluster == "devnet" ? "https://api.devnet.solana.com" : " https://api.solana.com"
+            }
             return conf
         } else {
             return this.loadDefaultConfig()

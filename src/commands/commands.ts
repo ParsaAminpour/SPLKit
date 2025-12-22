@@ -126,6 +126,7 @@ export const createCommands = (cctx: CliContext) => {
 
     const swapCommand = program.command("swap") // ✅ Done
         .requiredOption("--amount <amount>", "Amount to swap", (value) => parseFloat(value))
+        .option("-p --payer <string>", "The payer of the transaction", "admin")
         .option("-s --slippage <slippage>", "Slippage for the swap")
         .requiredOption("--base")
         .description("Swap ITA Token with SOL or vice versa using the Raydium CPMM liquidity pool")

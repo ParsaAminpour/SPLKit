@@ -4,7 +4,7 @@ import { getAssociatedTokenAddressSync, getOrCreateAssociatedTokenAccount, TOKEN
 import * as utils from "../../utils/utils"
 import { PublicKey } from "@metaplex-foundation/js"
 import consola from "consola";
-import { showFailure, transferCallbackMessage, transferProcessingMessage } from "../../utils/messageUtils";
+import { transferCallbackMessage, transferProcessingMessage } from "../../utils/messageUtils";
 import fs from "fs"
 import { Keypair, sendAndConfirmTransaction, SystemProgram, Transaction } from "@solana/web3.js";
 import { Result, Ok, Err } from "../../types/share";
@@ -14,32 +14,36 @@ export const transferToken = async(cctx: CliContext, fromKp: Keypair, to: string
     if (!cctx.configs.admin_wallet_keypair) {
         return Err("Admin wallet keypair is not configured in CLI context")
     }
-    const tokenDecimalNumber = await utils.getNumberOfDecimals(cctx.connection, cctx.itaTokenMintPDA)
-    const amountToTransfer = amount * Math.pow(10, tokenDecimalNumber)
-    const senderAddress = fromKp.publicKey
-    const senderTokenAccount = getAssociatedTokenAddressSync(
-        cctx.itaTokenMintPDA,
-        senderAddress,
-        false,
-        TOKEN_PROGRAM_ID,
-        ASSOCIATED_TOKEN_PROGRAM_ID
-    )
-    const destinationTokenAccount = await getOrCreateAssociatedTokenAccount(
-        cctx.connection,
-        fromKp,
-        new PublicKey(cctx.itaTokenMintPDA),
-        new PublicKey(to)
-    )
+    try {
+        const tokenDecimalNumber = await utils.getNumberOfDecimals(cctx.connection, cctx.itaTokenMintPDA)
+        const amountToTransfer = amount * Math.pow(10, tokenDecimalNumber)
+        const senderAddress = fromKp.publicKey
+        const senderTokenAccount = getAssociatedTokenAddressSync(
+            cctx.itaTokenMintPDA,
+            senderAddress,
+            false,
+            TOKEN_PROGRAM_ID,
+            ASSOCIATED_TOKEN_PROGRAM_ID
+        )
+        const destinationTokenAccount = await getOrCreateAssociatedTokenAccount(
+            cctx.connection,
+            fromKp,
+            new PublicKey(cctx.itaTokenMintPDA),
+            new PublicKey(to)
+        )
 
-    const sig = await singleTransfer(
-        cctx,
-        cctx.configs.admin_wallet_keypair,
-        senderTokenAccount,
-        destinationTokenAccount.address,
-        cctx.configs.admin_wallet_keypair.publicKey,
-        amountToTransfer
-    )
-    return Ok(sig)
+        const sig = await singleTransfer(
+            cctx,
+            fromKp,
+            senderTokenAccount,
+            destinationTokenAccount.address,
+            senderAddress,
+            amountToTransfer
+        )
+        return Ok(sig)
+    } catch (err) {
+        return Err(err instanceof Error ? err.message : "an unexpected error occurred")
+    }
 }
 
 export const transferTokenHandler = async(cctx: CliContext, options: any) => {
@@ -64,18 +68,14 @@ export const batchTransfer = async(cctx: CliContext, filePath: string): Promise<
     const adminAddress = cctx.configs.admin_wallet_keypair.publicKey
 
     const content = (await utils.readFromFileLineByLine(filePath)).filter(line => line.trim().length > 0)
-    content
-        .forEach((c, idx) => {
-            if (!dataFormatForBatchTransferByLineCheck(c)) {
-                showFailure(`data is not in right format in line ${idx}`)
-                return
-            }
-            if (c.split(";")[0] == adminAddress.toString()) {
-                showFailure(`admin wallet as destination is not allowed`)
-                return
-            }
-        })
-    
+    for (const [idx, c] of content) {
+        if (!dataFormatForBatchTransferByLineCheck(c)) {
+            return Err(`data is not in right format in line ${idx}`)
+        }
+        if (c.split(";")[0] == adminAddress.toString()) {
+            return Err(`admin wallet as destination is not allowed`)
+        }
+    }    
     const tokenDecimalNumber = await utils.getNumberOfDecimals(cctx.connection, cctx.itaTokenMintPDA)
     content.forEach(async(c) => {
         const destinationAddress = c.split(";")[0]
@@ -133,7 +133,7 @@ export const nativeTransfer = async(cctx: CliContext, fromKp: Keypair, toPk: Pub
         )
         return Ok(signature)
     } catch (err) {
-        return Err(err as string)
+        return Err(err instanceof Error ? err.message : "an unexpected error occurred")
     }
 }
 

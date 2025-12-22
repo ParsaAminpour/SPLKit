@@ -14,9 +14,8 @@ export const mintToken = async(cctx: CliContext, to: string, amount: number): Pr
         return Err("Admin wallet keypair is not configured in CLI context")
     }
     const adminAddress = cctx.configs.admin_wallet_keypair.publicKey
+    if (to == adminAddress.toBase58()) return Err("admin can not mint to himself")
 
-    let mintTx; 
-    let transferTx;
     try {
         const adminTokenAccount = getAssociatedTokenAddressSync(
             cctx.itaTokenMintPDA,
@@ -25,35 +24,31 @@ export const mintToken = async(cctx: CliContext, to: string, amount: number): Pr
             TOKEN_PROGRAM_ID,
             ASSOCIATED_TOKEN_PROGRAM_ID
         )
-
-        mintTx = await cctx.program.methods.mintToken(
+        const mintTx = await cctx.program.methods.mintToken(
             new anchor.BN(amount)
         ).rpc()
         
-        if (to != adminAddress.toString() && amount) {
-            const tokenDecimalNumber = await utils.getNumberOfDecimals(cctx.connection, cctx.itaTokenMintPDA)
-            const amountToTransfer = amount * Math.pow(10, tokenDecimalNumber)
+        const tokenDecimalNumber = await utils.getNumberOfDecimals(cctx.connection, cctx.itaTokenMintPDA)
+        const amountToTransfer = amount * Math.pow(10, tokenDecimalNumber)
 
-            const destinationTokenAccount = await getOrCreateAssociatedTokenAccount(
-                cctx.connection,
-                cctx.configs.admin_wallet_keypair,
-                new PublicKey(cctx.itaTokenMintPDA),
-                new PublicKey(to)
-            )
-
-            transferTx = await singleTransfer(
-                cctx,
-                cctx.configs.admin_wallet_keypair,
-                adminTokenAccount,
-                destinationTokenAccount.address,
-                cctx.configs.admin_wallet_keypair.publicKey,
-                amountToTransfer
-            )
-        }
-    } catch (error) {
-        return Err(error as string)
+        const destinationTokenAccount = await getOrCreateAssociatedTokenAccount(
+            cctx.connection,
+            cctx.configs.admin_wallet_keypair,
+            new PublicKey(cctx.itaTokenMintPDA),
+            new PublicKey(to)
+        )
+        const transferTx = await singleTransfer(
+            cctx,
+            cctx.configs.admin_wallet_keypair,
+            adminTokenAccount,
+            destinationTokenAccount.address,
+            cctx.configs.admin_wallet_keypair.publicKey,
+            amountToTransfer
+        )
+        return Ok(`${mintTx},${transferTx}`)
+    } catch (err) {
+        return Err(err instanceof Error ? err.message : "an unexpected error occurred")
     }
-    return Ok(`${mintTx},${transferTx}`)
 }
 
 export const mintTokenHandler = async(cctx: CliContext, options: any) => {

@@ -1,5 +1,6 @@
 import { NATIVE_MINT } from "@solana/spl-token";
 import { consola } from "consola";
+import { logger } from "./logger"
 
 type Detail = string | string[];
 
@@ -26,7 +27,8 @@ export const showWarning = (message: string, details?: Detail) => {
 
 export const showFailure = (message: string, details?: Detail) => {
     const extra = formatDetails(details);
-    extra ? consola.error(message, "\n", extra) : consola.error(message);
+    // extra ? consola.error(message, "\n", extra) : consola.error(message);
+    extra ? logger.error(message, "\n", extra) : logger.error(message);
 };
 
 export const showFailureAndReturn = (message: string, details?: Detail): never => {
@@ -82,12 +84,10 @@ export const confirmOrExit = async (ask: string, noCallbackMessage: string) => {
     }
 }
 
-export const transferCallbackMessage = (isFailed: boolean, txId?: string) => {
+export const transferCallbackMessage = (isFailed: boolean, txId?: string, reason?: string) => {
     if (isFailed) {
         const message = "Transfer Transaction Failed! ❌";
-        const details = txId 
-            ? `Transaction ID: ${txId}\n${explorerLink(txId)}`
-            : "No transaction ID available";
+        const details = reason ? `Reason: ${reason}` : "No transaction ID available";
         showFailure(message, details);
     } else {
         const message = "Transfer Transaction Success! 🎉";
@@ -98,12 +98,10 @@ export const transferCallbackMessage = (isFailed: boolean, txId?: string) => {
     }
 }
 
-export const transferNativeCallbackMessage = (isFailed: boolean, txId?: string) => {
+export const transferNativeCallbackMessage = (isFailed: boolean, txId?: string, reason?: string) => {
     if (isFailed) {
         const message = "Transfer Transaction Failed! ❌";
-        const details = txId 
-            ? `Transaction ID: ${txId}\n${explorerLink(txId)}`
-            : "No transaction ID available";
+        const details = reason ? `Reason: ${reason}` : "No transaction ID available";
         showFailure(message, details);
     } else {
         const message = "Transfer Transaction Success! 🎉";
@@ -114,12 +112,10 @@ export const transferNativeCallbackMessage = (isFailed: boolean, txId?: string) 
     }
 }
 
-export const mintCallbackMessage = (isFailed: boolean, txId?: string) => {
+export const mintCallbackMessage = (isFailed: boolean, txId?: string, reason?: string) => {
     if (isFailed) {
         const message = "Mint Transaction Failed! ❌";
-        const details = txId 
-            ? `Transaction ID: ${txId}\n${explorerLink(txId)}`
-            : "No transaction ID available";
+        const details = reason ? `Reason: ${reason}` : "No transaction ID available";
         showFailure(message, details);
     } else {
         const message = "Mint Transaction Success! 🎉";
@@ -144,13 +140,13 @@ export const swapCallbackMessage = (isFailed: boolean, txId?: string, reason?: s
     }
 }
 
-export const strategyCallbackMessage = (isFailed: boolean, reason?: string) => {
+export const strategyCallbackMessage = (isFailed: boolean, successCount?: number, failureCount?: number, reason?: string) => {
     if (isFailed) {
         const message = "Strategy Execution Failed! ❌";
         const details = reason ? `Reason: ${reason}` : "One or more operations in the strategy failed";
         showFailure(message, details);
     } else {
-        const message = "Strategy Execution Success! 🎉";
+        const message = `Strategy Execution Success! 🎉 (${successCount} succeeded, ${failureCount} failed)`;
         showSuccess(message);
     }
 }
