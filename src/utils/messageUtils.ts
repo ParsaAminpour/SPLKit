@@ -25,10 +25,11 @@ export const showWarning = (message: string, details?: Detail) => {
     extra ? consola.warn(message, "\n", extra) : consola.warn(message);
 };
 
-export const showFailure = (message: string, details?: Detail) => {
-    const extra = formatDetails(details);
-    // extra ? consola.error(message, "\n", extra) : consola.error(message);
-    extra ? logger.error(message, "\n", extra) : logger.error(message);
+export const showFailure = (message: string, _details?: Detail) => {
+    const extra = formatDetails(_details);
+    extra 
+        ? logger.error(`${message}\n${extra}`)
+        : logger.error(message);
 };
 
 export const showFailureAndReturn = (message: string, details?: Detail): never => {
@@ -104,7 +105,7 @@ export const transferNativeCallbackMessage = (isFailed: boolean, txId?: string, 
         const details = reason ? `Reason: ${reason}` : "No transaction ID available";
         showFailure(message, details);
     } else {
-        const message = "Transfer Transaction Success! 🎉";
+        const message = "Transfer (SOL) Transaction Success! 🎉";
         const details = txId 
             ? explorerLink(txId)
             : undefined;

@@ -1,5 +1,5 @@
 import { program } from "commander";
-import consola = require("consola");
+import consola from "consola";
 import { configs } from "./readOps/configs";
 import { showFailureAndReturn } from "../utils/messageUtils";
 import { CliContext } from "@/index";
@@ -33,6 +33,8 @@ program
 
 
 // TODO : All the commands have to contain --prior flag for sending transaction with priority fee
+// TODO : We need more graceful and user-friendly error handling
+// TODO : Set timeout for ext requests
 // ‌TODO : Add pre-action operations for each commands
 // TODO : Complete the command descriptions for the user guide
 // TODO : showing token stats via diagrams and charts
@@ -57,24 +59,27 @@ export const createCommands = (cctx: CliContext) => {
     const mintCommand = program.command("mint") 
         .option("-t --to <string>", "Recipient address; omit to mint to the admin wallet")
         .option("-a --amount <number>", "Amount to mint (UI units, e.g., 1 = one whole token)")
+        // .option("--priority-level <number>", "Priority fee level: 0=LOW, 1=MEDIUM (default), 2=HIGH, 3=VERY_HIGH, 4=UNSAFE_MAX")
         .description("Mint ITA tokens to a recipient (defaults to admin if --to is not provided).")
 
-    const transferRawCommand = program.command("transfer") 
+    const transferRawCommand = program.command("transfer")
     const transferCommand = transferRawCommand 
-        .option("-f, --from-keypair <string>", "Sender keypair JSON path (defaults to admin)")
+        .option("-f, --from-keypair <string>", "Sender keypair JSON path (defaults to admin)", "admin")
         .option("-t, --to <string>", "Recipient wallet address (owner, not ATA)")
         .option("-a, --amount <number>", "Amount to transfer in UI units (e.g., 1 = one whole token)")
+        .option("--priority-level <number>", "Priority fee level: 0=LOW, 1=MEDIUM (default), 2=HIGH, 3=VERY_HIGH, 4=UNSAFE_MAX")
         .description("Transfer ITA tokens from the specified sender (default admin) to the recipient")
 
     const nativeTransferCommand = program.command("transfer-native")
-        .option("-f, --from-keypair <string>", "Sender keypair JSON path (defaults to admin)")
+        .option("-f, --from-keypair <string>", "Sender keypair JSON path (defaults to admin)", "admin")
         .option("-t, --to <string>", "Recipient wallet address")
         .option("-a, --amount <number>", "Amount of SOL to send (in SOL, e.g., 0.1)")
+        .option("--priority-level <number>", "Priority fee level: 0=LOW, 1=MEDIUM (default), 2=HIGH, 3=VERY_HIGH, 4=UNSAFE_MAX")
         .description("Transfer SOL from the specified sender (default admin) to the recipient wallet")
 
     const batchTransfercommand = transferCommand.command("batch") 
         .option("-f --file <string>", "Path to CSV/JSON list of recipients and amounts")
-        .description("Batch transfer ITA tokens from admin to recipients listed in file")
+        .option("--priority-level <number>", "Priority fee level: 0=LOW, 1=MEDIUM (default), 2=HIGH, 3=VERY_HIGH, 4=UNSAFE_MAX")        .description("Batch transfer ITA tokens from admin to recipients listed in file")
 
     // const burnCommand = program.command("burn") // Not for now
     const createATACommand = program.command("create-account").option("-o --owner <address", "The owner of the Associated Token Account")
@@ -109,6 +114,7 @@ export const createCommands = (cctx: CliContext) => {
         .requiredOption("--base", "is this amount associated to the base asset or not")
         .option("--quote", "is this amount associated to the quote asset or not")
         .option("--slippage <number>", "Slippage for adding liquidity in ui format like 2.5 or 3 without any percentage icon, default is 2.5(%)")
+        .option("--priority-level <number>", "Priority fee level: 0=LOW, 1=MEDIUM (default), 2=HIGH, 3=VERY_HIGH, 4=UNSAFE_MAX")
         .hook("preAction", (thisCommand) => {
             const opts = thisCommand.opts();
             const isBase = !!opts.base;
@@ -126,6 +132,7 @@ export const createCommands = (cctx: CliContext) => {
         .requiredOption("--amount <amount>", "Amount to swap", (value) => parseFloat(value))
         .option("-p --payer <string>", "The payer of the transaction", "admin")
         .option("-s --slippage <slippage>", "Slippage for the swap")
+        .option("--priority-level <number>", "Priority fee level: 0=LOW, 1=MEDIUM (default), 2=HIGH, 3=VERY_HIGH, 4=UNSAFE_MAX")
         .requiredOption("--base")
         .description("Swap ITA <-> SOL through the Raydium CPMM pool with optional slippage control; payer defaults to admin")
 
@@ -208,6 +215,7 @@ export const createCommands = (cctx: CliContext) => {
     // The Cli tool configuration management
     const configCommand = program.command("config")
     const getConfigCommand = configCommand.command("get")
+        .option("-s --sensitive", "Showing sensitive data")
         .description("Show the current CLI configuration (cluster, mint PDA, pool id, endpoints) so you can confirm settings before running commands")
         
     const setConfigCommand = configCommand
@@ -217,6 +225,7 @@ export const createCommands = (cctx: CliContext) => {
         .option("--token-mint-pda <string>", "ITA Token Mint PDA address")
         .option("--poolid <string>", "ITA Token Create CPMM Pool ID on Raydium")
         .option("--cluster-url <string>", "custom url of the cluster")
+        .option("--helius-api-key <string>", "Your Helius API key")
         .hook("preAction", (thisCommand) => {
             const opts = thisCommand.opts();
             if (opts.cluster && (opts.cluster !== "devnet" && opts.cluster !== "mainnet")) showFailureAndReturn("Invalid cluster. Allowed values are 'devnet' or 'mainnet'.");

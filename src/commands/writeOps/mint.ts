@@ -6,10 +6,11 @@ import * as utils from "../../utils/utils"
 import * as anchor from "@coral-xyz/anchor"
 import { Result, Ok, Err } from "../../types/share";
 import { mintCallbackMessage, transferCallbackMessage } from "../../utils/messageUtils"
+import { PriorityLevel } from "../../utils/transactionUtils"
 
 
 // NOTE : to is the destination wallet address, not Associated Token Account
-export const mintToken = async(cctx: CliContext, to: string, amount: number): Promise<Result<string>> => {
+export const mintToken = async(cctx: CliContext, to: string, amount: number, priorityLevel: number = PriorityLevel.MEDIUM): Promise<Result<string>> => {
     if (!cctx.configs.admin_wallet_keypair) {
         return Err("Admin wallet keypair is not configured in CLI context")
     }
@@ -17,6 +18,9 @@ export const mintToken = async(cctx: CliContext, to: string, amount: number): Pr
     if (to == adminAddress.toBase58()) return Err("admin can not mint to himself")
 
     try {
+        // @ts-ignore - Use it later
+        const estimate = await getPriorityFeeInfo(cctx.heliusSDK, cctx.configs.ita_token_mint_pda, priorityLevel)
+
         const adminTokenAccount = getAssociatedTokenAddressSync(
             cctx.itaTokenMintPDA,
             adminAddress,
@@ -52,7 +56,7 @@ export const mintToken = async(cctx: CliContext, to: string, amount: number): Pr
 }
 
 export const mintTokenHandler = async(cctx: CliContext, options: any) => {
-    const result = await mintToken(cctx, options.to, options.amount)
+    const result = await mintToken(cctx, options.to, options.amount, options.priorityLevel)
     if (result.ok) {
         const [mintTx, transferTx] = (result.value.split(",")[0], result.value.split(",")[1])
         mintCallbackMessage(false, mintTx)

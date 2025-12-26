@@ -11,6 +11,7 @@ export interface ITAConfiguration {
     raydium_pool_id: string,
     admin_wallet_keypair?: Keypair,
     cluster_url: string,
+    helius_api_key: string,
 }
 
 export class ConfigManager {
@@ -54,6 +55,7 @@ export class ConfigManager {
         _ita_token_mint_pda?: string,
         _raydium_pool_id?: string,
         _cluster_url?: string,
+        _helius_api_key?: string,
     ): ITAConfiguration {
         let conf: ITAConfiguration
         if (fs.existsSync(this.localConfigPath)) {
@@ -62,6 +64,7 @@ export class ConfigManager {
             if (_ita_token_program_id) conf.ita_token_program_id = _ita_token_program_id
             if (_ita_token_mint_pda) conf.ita_token_mint_pda = _ita_token_mint_pda
             if (_cluster_url) conf.cluster_url = _cluster_url
+            if (_helius_api_key) conf.helius_api_key = _helius_api_key
         } else {
             throw new Error("configuration file (ita-cli.config.json) doesn't exist")
         }

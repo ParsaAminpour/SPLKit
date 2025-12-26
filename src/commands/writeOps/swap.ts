@@ -16,6 +16,7 @@ import consola from 'consola'
 import { confirmOrExit, showWarning, swapCallbackMessage, swapProcessingMessage } from '../../utils/messageUtils'
 import { Result, Ok, Err } from '../../types/share'
 import { loadKeypair } from '../../utils/utils'
+import { getPriorityFeeInfo, PriorityLevel } from '../../utils/transactionUtils'
 // import { apiSwapBaseOut } from './helpers'
 
 export enum SwapDirection {
@@ -24,7 +25,16 @@ export enum SwapDirection {
 }
 
 // NOTE : mintA is typically refers to native mint aka. SOL
-export const swapITAToken = async(cctx: CliContext, raydium: Raydium, poolId: string, payerKpLoc: string, amountIn: number, direction: SwapDirection, askBeforeAction: boolean): Promise<Result<string>> => {
+export const swapITAToken = async (
+    cctx: CliContext,
+    raydium: Raydium,
+    poolId: string,
+    payerKpLoc: string,
+    amountIn: number,
+    direction: SwapDirection,
+    askBeforeAction: boolean,
+    priorityLevel: number = PriorityLevel.MEDIUM
+): Promise<Result<string>> => {
     if (amountIn < 100_000) showWarning("You are probably using 'amountIn' without considering the token decimals; this may cause the swap to fail.")
     try {
         const [inputSymbol, outputSymbol] = direction == SwapDirection.BUY ? ["SOL", "ITA"] : ["ITA", "SOL"];
@@ -50,7 +60,7 @@ export const swapITAToken = async(cctx: CliContext, raydium: Raydium, poolId: st
         if (inputMint !== poolInfo.mintA.address && inputMint !== poolInfo.mintB.address) return Err('input mint does not match pool')
         const baseIn = direction == SwapDirection.BUY && NATIVE_MINT.toBase58() === poolInfo.mintA.address // base is typically refers to SOL
         const [inputDecimal, outputDecimal] = direction == SwapDirection.BUY ? [poolInfo.mintA.decimals, poolInfo.mintB.decimals] : [poolInfo.mintB.decimals, poolInfo.mintA.decimals]
-  
+
         const swapResult = CurveCalculator.swapBaseInput(
           inputAmount,
           baseIn ? rpcData.baseReserve : rpcData.quoteReserve,
@@ -66,11 +76,14 @@ export const swapITAToken = async(cctx: CliContext, raydium: Raydium, poolId: st
         const swapResultAmountOut = swapResult.outputAmount.toNumber()
         const tradeFee = swapResult.tradeFee.toNumber()
       
+        const estimate = await getPriorityFeeInfo(cctx.heliusSDK, cctx.configs.ita_token_mint_pda, priorityLevel)
+        if (!estimate.ok) return Err(`There is an error in fetching priority estimation fee\n${estimate.error}`)
         if (askBeforeAction) {
           consola.info("Swap preview based on your input:");
           consola.log(`- You send (input amount): ${swapResultAmountIn} ~ ${swapResultAmountIn / (10 ** inputDecimal)} ${inputSymbol}`);
           consola.log(`- You receive (output amount): ${swapResultAmountOut} ~ ${swapResultAmountOut / (10 ** outputDecimal)} ${outputSymbol}`);
-          consola.log(`- Estimated trade fee: ${tradeFee.toString()} ~ ${tradeFee / (10 ** inputDecimal)} SOL\n`);
+          consola.log(`- Estimated trade fee: ${tradeFee.toString()} ~ ${tradeFee / (10 ** inputDecimal)} SOL`);
+          consola.log(`- Priority fee is on ${PriorityLevel[priorityLevel]} level with amount of ${estimate.value} per compute unit\n`)
           await confirmOrExit(
             "Do you want to proceed with the swap using the above data?",
             "Swap operation has been terminated by the user."
@@ -89,23 +102,19 @@ export const swapITAToken = async(cctx: CliContext, raydium: Raydium, poolId: st
         
           txVersion: TxVersion.V0,
           // optional: set up priority fee here
-          // computeBudgetConfig: {
-          //   units: 600000,
-          //   microLamports: 4659150,
-          // },
-        
-          // optional: add transfer sol to tip account instruction. e.g sent tip to jito
-          // txTipConfig: {
-          //   address: new PublicKey('96gYZGLnJYVFmbjzopPSU6QiEV5fGqZNyN9nmNhvrZU5'),
-          //   amount: new BN(10000000), // 0.01 sol
-          // },
+          computeBudgetConfig: {
+            units: 200_000,
+            microLamports: estimate.value,
+          },
         })
-      
+
+        // const res = await cctx.connection.simulateTransaction(transaction)
+        // await confirmOrExit(`continue? ${getUnitConsumed(res.value.unitsConsumed!)}`, "terminated")
         const { txId } = await execute({ sendAndConfirm: true })
         return Ok(txId)
       
     } catch (err) {
-        return Err(err instanceof Error ? err.message : "an unexpected error occurred")
+        return Err(err as any)
     }
 }
 
@@ -115,8 +124,17 @@ export const swapITATokenHandler = async(cctx: CliContext, options: any) => {
       const direction = options.base ? SwapDirection.BUY : SwapDirection.SELL
       const inputPDA = direction == SwapDirection.BUY ? NATIVE_MINT.toBase58() : cctx.configs.ita_token_mint_pda
       swapProcessingMessage(inputPDA, options.amount)
-      const result = await swapITAToken(cctx, raydium, cctx.configs.raydium_pool_id, options.payer, options.amount, direction, true)
-      !result.ok ? swapCallbackMessage(true, "", result.error) : swapCallbackMessage(false, result.value)
+      const result = await swapITAToken(
+        cctx, 
+        raydium, 
+        cctx.configs.raydium_pool_id, 
+        options.payer, 
+        options.amount, 
+        direction, 
+        true, 
+        options.priorityLevel
+      )
+      !result.ok ? swapCallbackMessage(true, "", `reason: ${result.error}`) : swapCallbackMessage(false, result.value)
 
     } catch (error) {
       console.log(error)

@@ -4,7 +4,7 @@ import { ITAConfiguration } from "../../configs/configs"
 
 export const configs = new ConfigManager()
 
-export const getConfig = () => {
+export const getConfig = (options: any) => {
     const conf = configs.load()
     consola.start("Loaded configuration:");
     console.table({
@@ -13,7 +13,8 @@ export const getConfig = () => {
         tokenMintPda: conf.ita_token_mint_pda,
         raydiumPoolID: conf.raydium_pool_id,
         adminWallet: conf.admin_wallet_keypair?.publicKey.toString(),
-        clusterURL: conf.cluster_url,
+        clusterURL: options.sensitive ? conf.cluster_url : "**********",
+        heliusAPIKey: options.sensitive ? conf.helius_api_key : "**********",
     });
 }
 
@@ -25,7 +26,8 @@ export const setConfig = (options: any) => {
             options.tokenProgramId,
             options.tokenMintPda,
             options.poolid,
-            options.clusterUrl
+            options.clusterUrl,
+            options.heliusApiKey
         )
     } catch(error) {
         console.error("There is an error in setting configuration\n", error)

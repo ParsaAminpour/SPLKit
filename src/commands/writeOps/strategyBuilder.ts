@@ -118,7 +118,7 @@ const operationMapper = async(cctx: CliContext, op: StrategyOperation): Promise<
         case "transfer":
             const fromKp = op.fromKp == "admin" ? cctx.configs.admin_wallet_keypair : loadKeypair(op.fromKp)
             if (op.assetPDA == cctx.configs.ita_token_mint_pda) {
-                const transferRes = await transferToken(cctx, fromKp!, op.toPk, op.amount)
+                const transferRes = await transferToken(cctx, fromKp!, op.toPk, op.amount, false)
                 if (!transferRes.ok) { 
                     transferCallbackMessage(true, undefined, `Operation ID: ${op.id} | ${transferRes.error}`) 
                     return Err(transferRes.error)
@@ -127,7 +127,7 @@ const operationMapper = async(cctx: CliContext, op: StrategyOperation): Promise<
                 return Ok(transferRes.value)
             }
             else if (op.assetPDA == NATIVE_MINT.toBase58()) {
-                const transferRes = await nativeTransfer(cctx, fromKp!, new PublicKey(op.toPk), op.amount) // in lamports
+                const transferRes = await nativeTransfer(cctx, fromKp!, new PublicKey(op.toPk), op.amount, false) // in lamports
                 if (!transferRes.ok) {
                     transferCallbackMessage(true, undefined, `Operation ID: ${op.id} | ${transferRes.error}`)
                     return Err(transferRes.error)

@@ -20,17 +20,20 @@ import { swapITATokenHandler } from "./commands/writeOps/swap";
 import { createPoolHandle } from "./commands/writeOps/createCPMMPool"
 import { strategyBuilderHandler } from "./commands/writeOps/strategyBuilder"
 import { createCommands } from "./commands/commands"
+import { createHelius, HeliusClient } from "helius-sdk";
 
 export interface CliContext {
     readonly program: Program<anchor.Idl>,
     readonly connection: web3.Connection,
     readonly provider: AnchorProvider,
     readonly itaTokenMintPDA: PublicKey,
-    configs: ITAConfiguration
+    heliusSDK: HeliusClient,
+    configs: ITAConfiguration,
     // getProgramId(): string,
     // getConnectionCluster(): string,
     // getConfigs(): ITAConfiguration
 }
+
 const setup = (): CliContext => {
     const conf = configs.load()
     const connection = new anchor.web3.Connection(conf.cluster_url, "confirmed");
@@ -45,7 +48,7 @@ const setup = (): CliContext => {
     anchor.setProvider(provider)
 
     if (!fs.existsSync("ita_token.json")) throw new Error("file ita_token.json doesn't exist")
-    const ITATokenIDL = JSON.parse(fs.readFileSync("ita_token.json", "utf-8")) as ItaToken    
+    const ITATokenIDL = JSON.parse(fs.readFileSync("ita_token.json", "utf-8")) as ItaToken
     const program = new Program(ITATokenIDL as anchor.Idl)
 
     const [itaTokenMintPDA] = PublicKey.findProgramAddressSync(
@@ -53,12 +56,16 @@ const setup = (): CliContext => {
         program.programId
     );
 
+    const apiKey = conf.helius_api_key
+    const helius = createHelius({ apiKey })
+
     const cctx: CliContext = {
         program: program,
         connection: connection,
         provider: provider,
         itaTokenMintPDA: itaTokenMintPDA,
-        configs: conf
+        configs: conf,
+        heliusSDK: helius
     }
     return cctx
 }
@@ -67,7 +74,7 @@ const cctx = setup()
 const main = async() => {
     const commands = createCommands(cctx)
     
-    commands.getConfigCommand.action(() => getConfig())
+    commands.getConfigCommand.action((options) => getConfig(options))
     commands.setConfigCommand.action((options) => setConfig(options))
 
     commands.balanceCommand.action(async(options) => {await getATABalanceHandler(cctx, options)})
