@@ -179,6 +179,7 @@ export const createCommands = (cctx: CliContext) => {
           "operation": "mintTo",
           "destinationAccount": "<pubkey>",
           "amount": <number>,              // raw amount (respect token decimals)
+          "priorityLevel": <number>,       // optional, default is 2 which means MEDIUM priority level
           "timeToExecute": <unix_ts?>      // optional, seconds, used with --schedule
         },
         {
@@ -188,6 +189,7 @@ export const createCommands = (cctx: CliContext) => {
           "fromKp": "<path/to/sender.json>",
           "toPk": "<recipientPubkey>",
           "amount": <number>,
+          "priorityLevel": <number>,
           "timeToExecute": <unix_ts?>
         },
         {
@@ -197,6 +199,7 @@ export const createCommands = (cctx: CliContext) => {
           "outputMintPDA": "<mintPDA_out>",
           "callerKp": "<path/to/payer.json>",
           "amount": <number>,
+          "priorityLevel": <number>,
           "timeToExecute": <unix_ts?>
         }
       ]

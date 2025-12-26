@@ -26,11 +26,8 @@ export const confirmTransaction = async (
             continue;
         }
         if (status.err) throw new Error(`Transaction failed: ${JSON.stringify(status.err)}`);
-  
         if (status.confirmationStatus && status.confirmationStatus === desiredConfirmationStatus) return status;
-  
         if (status.confirmationStatus === 'finalized') return status;
-  
         await new Promise(resolve => setTimeout(resolve, pollInterval));
     }
     throw new Error(`Transaction confirmation timeout after ${timeout}ms`);

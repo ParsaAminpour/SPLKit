@@ -18,6 +18,7 @@ export interface MintToOp {
     operation: "mintTo",
     destinationAccount: string,
     amount: number,
+    priorityLevel?: number, // default is 2
     timeToExecute?: number | null
 }
 
@@ -28,6 +29,7 @@ export interface TransferOp {
     fromKp: string,
     toPk: string,
     amount: number,
+    priorityLevel?: number, // default is 2
     timeToExecute?: number | null
 }
 
@@ -38,6 +40,7 @@ export interface SwapOp {
     outputMintPDA: string,
     callerKp: string,
     amount: number,
+    priorityLevel?: number, // default is 2
     timeToExecute?: number | null
 }
 

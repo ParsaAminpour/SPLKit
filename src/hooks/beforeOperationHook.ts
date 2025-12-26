@@ -1,3 +1,4 @@
+import { PriorityLevel } from "@/utils/transactionUtils";
 import { MintToOp, TransferOp, SwapOp } from "../commands/writeOps/strategyBuilder"
 import { Result, Ok, Err } from "../types/share";
 
@@ -15,12 +16,16 @@ export const beforeStrategyOpsCheck = <T extends MintToOp | TransferOp | SwapOp>
         case "mintTo":
             if (op.amount == null || typeof op.amount !== "number" || op.amount <= 0) return Err(`Operation ${idx}: mintTo requires a positive 'amount' number`);
             if (!op.destinationAccount || typeof op.destinationAccount !== "string" || op.destinationAccount.trim() === "") return Err(`Operation ${idx}: mintTo requires a non-empty 'destinationAccount' string`);
+            if (!op.priorityLevel) op.priorityLevel = PriorityLevel.MEDIUM
+            if (op.priorityLevel > 4) return Err(`Operation ${idx}: invalid priority level`)
             break;
             
         case "transfer":
             if (op.amount == null || typeof op.amount !== "number" || op.amount <= 0) return Err(`Operation ${idx}: transfer requires a positive 'amount' number`);
             if (!op.fromKp || typeof op.fromKp !== "string" || op.fromKp.trim() === "") return Err(`Operation ${idx}: transfer requires a non-empty 'fromKp' string`);
             if (!op.toPk || typeof op.toPk !== "string" || op.toPk.trim() === "") return Err(`Operation ${idx}: transfer requires a non-empty 'toPk' string`);
+            if (!op.priorityLevel) op.priorityLevel = PriorityLevel.MEDIUM
+            if (op.priorityLevel > 4) return Err(`Operation ${idx}: invalid priority level`)
             break;
         
         case "swap":
@@ -29,6 +34,8 @@ export const beforeStrategyOpsCheck = <T extends MintToOp | TransferOp | SwapOp>
             if (!op.outputMintPDA || typeof op.outputMintPDA !== "string" || op.outputMintPDA.trim() === "") return Err(`Operation ${idx}: swap requires a non-empty 'outputMintPDA' string`);
             if (!op.callerKp || typeof op.callerKp !== "string" || op.callerKp.trim() === "") return Err(`Operation ${idx}: swap requires a non-empty 'callerKp' string`);
             if (op.inputMintPDA === op.outputMintPDA) return Err(`Operation ${idx}: swap requires 'inputMintPDA' and 'outputMintPDA' to be different`);
+            if (!op.priorityLevel) op.priorityLevel = PriorityLevel.MEDIUM
+            if (op.priorityLevel > 4) return Err(`Operation ${idx}: invalid priority level`)
             break;
         }
     }
