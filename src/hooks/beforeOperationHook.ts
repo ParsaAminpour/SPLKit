@@ -1,4 +1,4 @@
-import { PriorityLevel } from "@/utils/transactionUtils";
+import { PriorityLevel } from "../utils/transactionUtils";
 import { MintToOp, TransferOp, SwapOp } from "../commands/writeOps/strategyBuilder"
 import { Result, Ok, Err } from "../types/share";
 

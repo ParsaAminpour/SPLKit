@@ -1,7 +1,7 @@
 import { program } from "commander";
 import consola from "consola";
 import { configs } from "./readOps/configs";
-import { showFailureAndReturn } from "../utils/messageUtils";
+import { showFailureAndReturn, showWarning } from "../utils/messageUtils";
 import { CliContext } from "@/index";
 
 // We also provide the primary features via step-by-step prompt back and forth
@@ -211,9 +211,24 @@ export const createCommands = (cctx: CliContext) => {
     Tip: Run scheduling on a reliable host; ensure keypair paths and PDAs are valid.
         `)
 
-    const predict = program.command("predict")
-        .option("-d --direction [DIRECTION]", "predict for buy or sell", "buy")
-        .option("--amount-in <number>", "amount of token you want to buy or sell to predict the new price")
+    const predictRawCommand = program.command("predict")
+    const pricePredict = predictRawCommand.command("price")
+        .requiredOption("-d --direction [DIRECTION]", "predict for buy or sell ITA token", "buy")
+        .requiredOption("--amount-in <number>", "amount of token you want to buy or sell to predict the new price (raw amount, respect token decimals)")
+        .option("--base", "Specify if the amount-in is for the base token (SOL)")
+        .option("--quote", "Specify if the amount-in is for the quote token (ITA)")
+        .hook("preAction", (thisCommand) => {
+            const opts = thisCommand.opts();
+            if (opts.base && opts.quote) {
+                showFailureAndReturn("Cannot specify both --base and --quote. Please use only one to indicate the token type for amount-in.");
+            }
+            if (!opts.base && !opts.quote) {
+                showFailureAndReturn("You must specify either --base or --quote to indicate the token type for amount-in.");
+            }
+            if (Number(opts.amountIn) < 1e5) {
+                showWarning("Warning: The amount-in you provided is very small. Did you remember to use the correct decimals for your token? This may cause the prediction to be inaccurate.");
+            }
+        })
 
     // The Cli tool configuration management
     const configCommand = program.command("config")
@@ -275,7 +290,7 @@ export const createCommands = (cctx: CliContext) => {
         holdersSnapshotCommand,
         transactionsSnapshotCommand,
         strategyBuilderCommand,
-        predict,
+        pricePredict,
         configCommand,
         getConfigCommand,
         setConfigCommand,

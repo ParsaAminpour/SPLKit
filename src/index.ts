@@ -21,6 +21,7 @@ import { createPoolHandle } from "./commands/writeOps/createCPMMPool"
 import { strategyBuilderHandler } from "./commands/writeOps/strategyBuilder"
 import { createCommands } from "./commands/commands"
 import { createHelius, HeliusClient } from "helius-sdk";
+import { getPricePredictHandler } from "./commands/readOps/swapInfo";
 
 export interface CliContext {
     readonly program: Program<anchor.Idl>,
@@ -82,6 +83,8 @@ const main = async() => {
     commands.tokenInfoCommand.action(() => tokenInfo(cctx))
     commands.tokenAccountInfoCommand.action(async(options) => await tokenAccountInfo(cctx, options))
     commands.topHoldersCommand.action(async(options) => await getTokeHolders(cctx, options))
+
+    commands.pricePredict.action(async(options) => await getPricePredictHandler(cctx, options))
 
     commands.mintCommand.action(async(options) => await mintTokenHandler(cctx, options))
     commands.transferCommand.action(async(options) => await transferTokenHandler(cctx, options))

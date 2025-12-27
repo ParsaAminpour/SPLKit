@@ -62,14 +62,14 @@ export const swapITAToken = async (
         const [inputDecimal, outputDecimal] = direction == SwapDirection.BUY ? [poolInfo.mintA.decimals, poolInfo.mintB.decimals] : [poolInfo.mintB.decimals, poolInfo.mintA.decimals]
 
         const swapResult = CurveCalculator.swapBaseInput(
-          inputAmount,
-          baseIn ? rpcData.baseReserve : rpcData.quoteReserve,
-          baseIn ? rpcData.quoteReserve : rpcData.baseReserve,
-          rpcData.configInfo!.tradeFeeRate,
-          rpcData.configInfo!.creatorFeeRate,
-          rpcData.configInfo!.protocolFeeRate,
-          rpcData.configInfo!.fundFeeRate,
-          rpcData.feeOn === FeeOn.BothToken || rpcData.feeOn === FeeOn.OnlyTokenB
+            inputAmount,
+            baseIn ? rpcData.baseReserve : rpcData.quoteReserve,
+            baseIn ? rpcData.quoteReserve : rpcData.baseReserve,
+            rpcData.configInfo!.tradeFeeRate,
+            rpcData.configInfo!.creatorFeeRate,
+            rpcData.configInfo!.protocolFeeRate,
+            rpcData.configInfo!.fundFeeRate,
+            rpcData.feeOn === FeeOn.BothToken || rpcData.feeOn === FeeOn.OnlyTokenB
         )
       
         const swapResultAmountIn = swapResult.inputAmount.toNumber()
