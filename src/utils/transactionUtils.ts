@@ -46,7 +46,9 @@ export const getPriorityFeeInfo = async(helius: HeliusClient, accountKey: string
         options: { includeAllPriorityFeeLevels: true },
       });
 
-      if (!Object.keys(estimate.priorityFeeLevels).includes("medium")) return Err("failed to get priority fee from helius")
+      if (!estimate.priorityFeeLevels || !Object.keys(estimate.priorityFeeLevels).includes("medium")) {
+        return Err("failed to get priority fee from helius")
+      }
       let res: number = estimate.priorityFeeLevels.medium
       switch (_priorityLevel++) {
         case PriorityLevel.LOW: res = estimate.priorityFeeLevels.low; break

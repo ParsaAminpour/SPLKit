@@ -2,6 +2,13 @@ import { CliContext } from "@/index";
 import { Result, Ok, Err } from "../../types/share";
 import { SwapDirection } from "../writeOps/swap";
 import { getPoolInfo } from "./poolInfo";
+import { showFailureAndReturn } from "../../utils/messageUtils";
+
+interface SwapPredictPrice { 
+    oldPrice: number,
+    newPrice: number,
+    priceImpact: number
+}
 
 /*
  * Buy direction means buying base token and selling quote token and same statement in vice versa
@@ -15,7 +22,7 @@ import { getPoolInfo } from "./poolInfo";
  * Simplidied formula (Buying Δx)  : P_new = y / (x - Δx) × (1 + Δx / ((x - Δx) × (1 - f)))
  * Simplidied formula (Selling Δx) : P_new = (y × x) / ((x + Δx) × (x + Δx × (1 - f)))
 */
-export const getPricePredict = async(cctx: CliContext, _amountIn: number, direction: SwapDirection, _isBaseIn: boolean): Promise<Result<number>> => {
+export const getPricePredict = async(cctx: CliContext, _amountIn: number, direction: SwapDirection, _isBaseIn: boolean): Promise<Result<SwapPredictPrice>> => {
     const poolInfo = await getPoolInfo(cctx.configs.raydium_pool_id, cctx.configs.cluster)
     if (poolInfo == undefined) return Err("Pool info could not be retrieved for the provided pool ID.")
     const mintAReserve = BigInt(Math.floor(poolInfo.mintAmountA * 1e9)) // SOL
@@ -47,12 +54,11 @@ export const getPricePredict = async(cctx: CliContext, _amountIn: number, direct
         newPrice = Number(yFinal) / Number(xFinal);
     }
 
-    console.log("old price: ", poolInfo.price) // ? ITA per SOL
-    console.log(`Price impact: ${priceImpact.toFixed(2)}%`)
-    direction == SwapDirection.BUY
-        ? console.log(`new price after Buy: ${newPrice} | ${newPrice - (newPrice * (priceImpact/100))} (with price impact)`)
-        : console.log(`new price after Sell: ${newPrice} | ${newPrice + (newPrice * (priceImpact/100))} (with price impact)`)
-    return Ok(1)
+    return Ok({
+        oldPrice: poolInfo.price,
+        newPrice: newPrice,
+        priceImpact: priceImpact
+    })
 }
 
 /* 
@@ -78,5 +84,13 @@ export const calculatePriceImpact = (
 }
 
 export const getPricePredictHandler = async(cctx: CliContext, options: any) => {
-    await getPricePredict(cctx, options.amountIn, options.direction == "buy" ? SwapDirection.BUY : SwapDirection.SELL, options.base)
+    const result = await getPricePredict(cctx, options.amountIn, options.direction == "buy" ? SwapDirection.BUY : SwapDirection.SELL, options.base)
+    if (!result.ok) showFailureAndReturn(result.error ?? "Unknown error occurred during price prediction.");
+    if(result.ok) {
+        console.log("old price: ", result.value.oldPrice) // ? ITA per SOL
+        console.log(`Price impact: ${result.value.newPrice.toFixed(2)}%`)
+        options.direction == "buy"
+            ? console.log(`new price after Buy: ${result.value.newPrice} | ${result.value.newPrice - (result.value.newPrice * (result.value.priceImpact/100))} (with price impact)`)
+            : console.log(`new price after Sell: ${result.value.newPrice} | ${result.value.newPrice + (result.value.newPrice * (result.value.priceImpact/100))} (with price impact)`)
+    }
 }

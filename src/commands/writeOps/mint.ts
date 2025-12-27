@@ -6,7 +6,7 @@ import * as utils from "../../utils/utils"
 import * as anchor from "@coral-xyz/anchor"
 import { Result, Ok, Err } from "../../types/share";
 import { mintCallbackMessage, transferCallbackMessage } from "../../utils/messageUtils"
-import { PriorityLevel } from "../../utils/transactionUtils"
+import { PriorityLevel, getPriorityFeeInfo } from "../../utils/transactionUtils"
 
 
 // NOTE : to is the destination wallet address, not Associated Token Account
@@ -41,7 +41,7 @@ export const mintToken = async(cctx: CliContext, to: string, amount: number, pri
             new PublicKey(cctx.itaTokenMintPDA),
             new PublicKey(to)
         )
-        const transferTx = await singleTransfer(
+        const transferTxResult = await singleTransfer(
             cctx,
             cctx.configs.admin_wallet_keypair,
             adminTokenAccount,
@@ -49,7 +49,10 @@ export const mintToken = async(cctx: CliContext, to: string, amount: number, pri
             cctx.configs.admin_wallet_keypair.publicKey,
             amountToTransfer
         )
-        return Ok(`${mintTx},${transferTx}`)
+        if (!transferTxResult.ok) {
+            return Err(transferTxResult.error)
+        }
+        return Ok(`${mintTx},${transferTxResult.value}`)
     } catch (err) {
         return Err(err instanceof Error ? err.message : "an unexpected error occurred")
     }
