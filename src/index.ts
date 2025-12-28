@@ -9,8 +9,8 @@ import fs from "fs"
 import { getConfig, setConfig } from "./commands/readOps/configs";
 import { configs } from "./commands/readOps/configs";
 import * as constant from "./commands/constants"
-import { getATABalanceHandler } from "./commands/readOps/status"
-import { tokenInfo, tokenAccountInfo, getTokeHolders } from "./commands/readOps/status"
+import { getATABalanceHandler, getHolderSnapshot, getTokeHoldersHandler } from "./commands/readOps/status"
+import { tokenInfo, tokenAccountInfo, getTransactionSnapshotHandler } from "./commands/readOps/status"
 import { mintTokenHandler } from "./commands/writeOps/mint";
 import { transferTokenHandler, nativeTransferHandler, batchTransferHandler } from "./commands/writeOps/transfer";
 import * as utils from "./utils/utils"
@@ -82,7 +82,10 @@ const main = async() => {
     // token metadata extracted from Metaplex
     commands.tokenInfoCommand.action(() => tokenInfo(cctx))
     commands.tokenAccountInfoCommand.action(async(options) => await tokenAccountInfo(cctx, options))
-    commands.topHoldersCommand.action(async(options) => await getTokeHolders(cctx, options))
+    commands.topHoldersCommand.action(async(options) => await getTokeHoldersHandler(cctx, options))
+
+    commands.holdersSnapshotCommand.action(async(options) => await getHolderSnapshot(cctx, options))
+    commands.transactionsSnapshotCommand.action(async(options) => await getTransactionSnapshotHandler(cctx, options))
 
     commands.pricePredict.action(async(options) => await getPricePredictHandler(cctx, options))
 

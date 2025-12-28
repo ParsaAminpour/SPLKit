@@ -44,7 +44,6 @@ export const swapITAToken = async (
         let poolInfo: ApiV3PoolInfoStandardItemCpmm
         let poolKeys: CpmmKeys | undefined
         let rpcData: CpmmParsedRpcData
-      
         if (raydium.cluster === 'mainnet') {
             const data = await raydium.api.fetchPoolById({ ids: poolId })
             poolInfo = data[0] as ApiV3PoolInfoStandardItemCpmm

@@ -7,7 +7,8 @@ import Table from 'cli-table3';
 import { consola } from "consola";
 import { getAssociatedTokenAddress} from "@solana/spl-token"
 import { writeToFile } from "../../utils/utils";
-import { showFailure } from "../../utils/messageUtils";
+import { showFailure, showFailureAndReturn, showSuccess } from "../../utils/messageUtils";
+import { Result, Ok, Err } from "../../types/share";
 // import { Program, Wallet, web3 } from "@coral-xyz/anchor";
 // import { Keypair, PublicKey } from "@solana/web3.js";
 
@@ -82,30 +83,61 @@ export const tokenAccountInfo = async(cctx: CliContext, options: any) => {
     consola.success(`Your Associated Token Address is: ${userATA}`)
 }
 
-export const getTokeHolders = async(cctx: CliContext, options: any) => {
+export const getTokenHolders = async(cctx: CliContext, count: number): Promise<Result<Array<any>>> => {
     const reqBody = {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: '{"jsonrpc":"2.0","id":"1","method":"getTokenAccounts","params":{"mint":"3Has4Q1yxdhQgAbByNLpP4EcWDn1nJUpqfSQg3d2W1Am"}}'
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: '{"jsonrpc":"2.0","id":"1","method":"getTokenAccounts","params":{"mint":"3Has4Q1yxdhQgAbByNLpP4EcWDn1nJUpqfSQg3d2W1Am"}}'
     };
 
     try {
-      const response = await fetch(cctx.configs.cluster_url, reqBody);
-      const fetchedData = await response.json() as any;
-      const tokenOwnersData: Array<any> = fetchedData["result"]["token_accounts"];
-      let data = []
-      for(const owner of tokenOwnersData) {
-        data.push({owner: owner.owner, balance: `${Number(owner.amount) / 1e9}`})
-      }
-      data.sort((b1, b2) => Number(b2.balance) - Number(b1.balance))
+        const response = await fetch(cctx.configs.cluster_url, reqBody);
+        const fetchedData = await response.json() as any;
+        const tokenOwnersData: Array<any> = fetchedData["result"]["token_accounts"];
+        let data = []
+        if (count > tokenOwnersData.length || count == 0) count = tokenOwnersData.length 
+        for(const owner of tokenOwnersData.slice(0, count)) {
+            data.push({owner: owner.owner, balance: `${Number(owner.amount) / 1e9}`})
+        }
+        data.sort((b1, b2) => Number(b2.balance) - Number(b1.balance))
+        return Ok(data)
 
-      if (options.output) {
-        const content: string[] = data.map(line => `owner: ${line.owner} | balance: ${line.balance}\n`)
-        writeToFile(options.output, content);
-      } else {
-        console.table(data.flat())
-      }
     } catch (error: any) {
-      showFailure(error.message)
+        return Err(error.message)
     }
+}
+export const getTokeHoldersHandler = async(cctx: CliContext, options: any) => {
+    const res = await getTokenHolders(cctx, options.number)
+    if(!res.ok) showFailureAndReturn("error in getting token holders", res.error)
+    if (res.ok) {
+        if (options.output) {
+            const content: string[] = res.value.map(line => `owner: ${line.owner} | balance: ${line.balance}\n`)
+            await writeToFile(options.output, content);
+        } else {
+            console.table(res.value.flat())
+        }
+    }
+}
+
+export const getHolderSnapshot = async(cctx: CliContext, options: any) => {
+    const res = await getTokenHolders(cctx, 0)
+    if(!res.ok) showFailureAndReturn("error in getting token holders", res.error)
+    if (res.ok) {
+        const content: string[] = res.value.map(line => `owner: ${line.owner} | balance: ${line.balance}\n`)
+        writeToFile(options.output, content);
+    }
+    showSuccess("Holder snapshot has been successfully saved.");
+}
+
+export const getTransactionSnapshotHandler = async(cctx: CliContext, options: any) => {
+    const limitNumber = options.number == 0 ? 1_000 : Number(options.number) // 1000 is max trxs we can fetch
+    const trxList = await cctx.connection.getSignaturesForAddress(new PublicKey(cctx.configs.ita_token_mint_pda), {limit: limitNumber})
+    let content: string[] = []
+    trxList.forEach((transaction, i) => {
+        const date = new Date(transaction.blockTime!*1000);
+        content.push(`Transaction No: ${i+1}\n Signature: ${transaction.signature}\n Time: ${date}\n Status: ${transaction.confirmationStatus}\n`)
+        if (i != trxList.length-1) content.push(("-").repeat(20) + "\n")
+    })
+    await writeToFile(options.output, content)
+    showSuccess("Transaction snapshot has been successfully saved.");
 }

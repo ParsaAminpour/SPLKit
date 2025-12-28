@@ -3,6 +3,7 @@ import consola from "consola";
 import { configs } from "./readOps/configs";
 import { showFailureAndReturn, showWarning } from "../utils/messageUtils";
 import { CliContext } from "@/index";
+import fs from "fs"
 
 // We also provide the primary features via step-by-step prompt back and forth
 program
@@ -32,57 +33,75 @@ program
     })
 
 
-// TODO : All the commands have to contain --prior flag for sending transaction with priority fee
 // TODO : We need more graceful and user-friendly error handling
 // TODO : Set timeout for ext requests
 // ‌TODO : Add pre-action operations for each commands
-// TODO : Complete the command descriptions for the user guide
-// TODO : showing token stats via diagrams and charts
-// TODO : add pre action hook for each one
 
 export const createCommands = (cctx: CliContext) => {
     const tokenInfoCommand = program.command("token-info")
         .description("Show ITA token metadata: mint address, supply (raw + ui), holder count, authorities, and metadata PDA")
         
     const balanceCommand = program.command("balance")
-        .option("-a --address <string>", "Wallet owner public key to check (not the ATA)")
+        .requiredOption("-a --address <string>", "Wallet owner public key to check (not the ATA)")
         .description("Show ITA token balance for the provided wallet owner address; outputs human-readable amount using token decimals")
         
     const tokenAccountInfoCommand = program.command("account-info")
-        .option("-a --address <string>", "Wallet owner public key; the ATA will be derived")
+        .requiredOption("-a --address <string>", "Wallet owner public key; the ATA will be derived")
         .description("Show the associated token account (ATA) for the provided wallet owner")
-        
-    const topHoldersCommand = program.command("top-holders") 
+    
+    const topHoldersCommand = program.command("top-holders")
+        .option("-n --number <number>", "Number of top holders to show (default: 10, whole holders: 0)", "10")
         .option("-o --output <string>", "write the output to a file with selected path")
         .description("List top 10 ITA token holders with balances; optionally write to file via --output")
+        .hook("preAction", (thisCommand) => {
+            const opts = thisCommand.opts()
+            if (Number(opts.number) <= 0) showFailureAndReturn("The value for --number must be a positive integer")
+        })
 
-    const mintCommand = program.command("mint") 
-        .option("-t --to <string>", "Recipient address; omit to mint to the admin wallet")
-        .option("-a --amount <number>", "Amount to mint (UI units, e.g., 1 = one whole token)")
+    const mintCommand = program.command("mint")
+        .requiredOption("-t --to <string>", "Recipient address; omit to mint to the admin wallet")
+        .requiredOption("-a --amount <number>", "Amount to mint (UI units, e.g., 1 = one whole token)")
         // .option("--priority-level <number>", "Priority fee level: 0=LOW, 1=MEDIUM (default), 2=HIGH, 3=VERY_HIGH, 4=UNSAFE_MAX")
-        .description("Mint ITA tokens to a recipient (defaults to admin if --to is not provided).")
+        .description("Mint ITA tokens to a recipient (defaults to admin if --to is not provided)")
 
     const transferRawCommand = program.command("transfer")
-    const transferCommand = transferRawCommand 
+    const transferCommand = transferRawCommand
         .option("-f, --from-keypair <string>", "Sender keypair JSON path (defaults to admin)", "admin")
-        .option("-t, --to <string>", "Recipient wallet address (owner, not ATA)")
-        .option("-a, --amount <number>", "Amount to transfer in UI units (e.g., 1 = one whole token)")
-        .option("--priority-level <number>", "Priority fee level: 0=LOW, 1=MEDIUM (default), 2=HIGH, 3=VERY_HIGH, 4=UNSAFE_MAX")
+        .requiredOption("-t, --to <string>", "Recipient wallet address (owner, not ATA)")
+        .requiredOption("-a, --amount <number>", "Amount to transfer in UI units (e.g., 1 = one whole token)")
+        .option("--priority-level <number>", "Priority fee level: 0=LOW, 1=MEDIUM (default), 2=HIGH, 3=VERY_HIGH, 4=UNSAFE_MAX", "1")
         .description("Transfer ITA tokens from the specified sender (default admin) to the recipient")
+        .hook("preAction", (thisCommand) => {
+            const opts = thisCommand.opts();
+            if (![0, 1, 2, 3, 4].includes(Number(opts.priorityLevel))) {
+                showFailureAndReturn("Invalid value for --priority-level. Allowed values are 0=LOW, 1=MEDIUM, 2=HIGH, 3=VERY_HIGH, 4=UNSAFE_MAX.");
+            }
+        })
 
     const nativeTransferCommand = program.command("transfer-native")
         .option("-f, --from-keypair <string>", "Sender keypair JSON path (defaults to admin)", "admin")
-        .option("-t, --to <string>", "Recipient wallet address")
-        .option("-a, --amount <number>", "Amount of SOL to send (in SOL, e.g., 0.1)")
-        .option("--priority-level <number>", "Priority fee level: 0=LOW, 1=MEDIUM (default), 2=HIGH, 3=VERY_HIGH, 4=UNSAFE_MAX")
+        .requiredOption("-t, --to <string>", "Recipient wallet address")
+        .requiredOption("-a, --amount <number>", "Amount of SOL to send (in SOL, e.g., 0.1)")
+        .option("--priority-level <number>", "Priority fee level: 0=LOW, 1=MEDIUM (default), 2=HIGH, 3=VERY_HIGH, 4=UNSAFE_MAX", "1")
         .description("Transfer SOL from the specified sender (default admin) to the recipient wallet")
+        .hook("preAction", (thisCommand) => {
+            const opts = thisCommand.opts();
+            if (![0, 1, 2, 3, 4].includes(Number(opts.priorityLevel))) {
+                showFailureAndReturn("Invalid value for --priority-level. Allowed values are 0=LOW, 1=MEDIUM, 2=HIGH, 3=VERY_HIGH, 4=UNSAFE_MAX.");
+            }
+        })
 
-    const batchTransfercommand = transferCommand.command("batch") 
-        .option("-f --file <string>", "Path to CSV/JSON list of recipients and amounts")
-        .option("--priority-level <number>", "Priority fee level: 0=LOW, 1=MEDIUM (default), 2=HIGH, 3=VERY_HIGH, 4=UNSAFE_MAX")        .description("Batch transfer ITA tokens from admin to recipients listed in file")
+    const batchTransfercommand = transferCommand.command("batch")
+        .requiredOption("-f --file <string>", "Path to CSV/JSON list of recipients and amounts")
+        .option("--priority-level <number>", "Priority fee level: 0=LOW, 1=MEDIUM (default), 2=HIGH, 3=VERY_HIGH, 4=UNSAFE_MAX", "1")       
+        .description("Batch transfer ITA tokens from admin to recipients listed in file")
+        .hook("preAction", (thisCommand) => {
+            const opts = thisCommand.opts();
+            if (![0, 1, 2, 3, 4].includes(Number(opts.priorityLevel))) {
+                showFailureAndReturn("Invalid value for --priority-level. Allowed values are 0=LOW, 1=MEDIUM, 2=HIGH, 3=VERY_HIGH, 4=UNSAFE_MAX.");
+            }
+        })
 
-    // const burnCommand = program.command("burn") // Not for now
-    const createATACommand = program.command("create-account").option("-o --owner <address", "The owner of the Associated Token Account")
     const setAuthorityCommand = program.command("set-authority").option("-a --address", "The authority address")
 
 
@@ -93,20 +112,18 @@ export const createCommands = (cctx: CliContext) => {
         .description("Show full pool details: reserves, fee tier, liquidity, and pool config")
 
     const priceCommand = program.command("price") 
-        .option("--poolid <string>", "The Raydium Pool ID related to your token")
+        .option("--poolid <string>", "The Raydium Pool ID related to your token", cctx.configs.raydium_pool_id)
         .description("Get current ITA price from the Raydium pool (quote/base)")
 
     const poolStatsCommand = poolCommand.command("stats") 
-        .option("--poolid <string>", "The Raydium Pool ID related to your token")
+        .option("--poolid <string>", "The Raydium Pool ID related to your token", cctx.configs.raydium_pool_id)
         .description("Show pool stats: volume, fees earned, TVL over recent periods")
 
     const priceHistory = priceCommand.command("history")
-        .option("--poolid <string>", "The Raydium Pool ID related to your token")
+        .option("--poolid <string>", "The Raydium Pool ID related to your token", cctx.configs.raydium_pool_id)
         .description("historical price data (24h, 7d, 30d)")
 
     const poolList = poolCommand.command("list").description("List of all pools containing ITA Token")
-
-    // const poolAPRCommand = poolCommand.command("apr").description("Calculate current APR/APY")
 
     // Raydium Pool Write Operations
     const poolAddLiquidityCommand = poolCommand.command("add") 
@@ -114,35 +131,37 @@ export const createCommands = (cctx: CliContext) => {
         .requiredOption("--base", "is this amount associated to the base asset or not")
         .option("--quote", "is this amount associated to the quote asset or not")
         .option("--slippage <number>", "Slippage for adding liquidity in ui format like 2.5 or 3 without any percentage icon, default is 2.5(%)")
-        .option("--priority-level <number>", "Priority fee level: 0=LOW, 1=MEDIUM (default), 2=HIGH, 3=VERY_HIGH, 4=UNSAFE_MAX")
+        .option("--priority-level <number>", "Priority fee level: 0=LOW, 1=MEDIUM (default), 2=HIGH, 3=VERY_HIGH, 4=UNSAFE_MAX", "1")
         .hook("preAction", (thisCommand) => {
             const opts = thisCommand.opts();
             const isBase = !!opts.base;
             const isQuote = !!opts.quote;
             if (isBase === isQuote) showFailureAndReturn("You must specify exactly one of --base or --quote (but not both).");
+            if (![0, 1, 2, 3, 4].includes(Number(opts.priorityLevel))) {
+                showFailureAndReturn("Invalid value for --priority-level. Allowed values are 0=LOW, 1=MEDIUM, 2=HIGH, 3=VERY_HIGH, 4=UNSAFE_MAX.");
+            }
         })
         .description("Add liquidity to the Raydium CPMM pool on either the base or quote side with optional slippage control")
 
     const createPoolCommand = poolCommand.command("create-position") 
-        .option("--amountA <number>")
-        .option("--amountB <number>")
+        .requiredOption("--amountA <number>")
+        .requiredOption("--amountB <number>")
         .description("Create a new Raydium CPMM position for ITA with provided token amounts")
 
     const swapCommand = program.command("swap") 
         .requiredOption("--amount <amount>", "Amount to swap", (value) => parseFloat(value))
+        .requiredOption("--base", "Is the swap initiated from base asset (ITA) side? (set if swapping from ITA, omit if swapping from SOL)")
         .option("-p --payer <string>", "The payer of the transaction", "admin")
         .option("-s --slippage <slippage>", "Slippage for the swap")
-        .option("--priority-level <number>", "Priority fee level: 0=LOW, 1=MEDIUM (default), 2=HIGH, 3=VERY_HIGH, 4=UNSAFE_MAX")
-        .requiredOption("--base")
+        .option("--priority-level <number>", "Priority fee level: 0=LOW, 1=MEDIUM (default), 2=HIGH, 3=VERY_HIGH, 4=UNSAFE_MAX", "1")
         .description("Swap ITA <-> SOL through the Raydium CPMM pool with optional slippage control; payer defaults to admin")
 
+    // TODO : C
     const poolRemoveLiquidityCommand = poolCommand.command("remove").option("--position-id <string>") // replace appropriate command for CPMM
     const poolCollectFeesCommand = poolCommand.command("collect-fees").description("Claim earned trading fees")
-    const poolClosePosition = poolCommand.command("close").option("--position-id <string>") // replace appropriate command for CPMM
 
     // Analytics and Monitoring
     const txListCommand = program.command("tx").command("list").description("Recent token transactions")
-    const volumeCommand = program.command("volume").description("token trading volume")
     const marketCapCommand = program.command("market-cap").description("calculation market capitalization")
     const tokenomicCommand = program.command("tokenomic").description("Complete tokenomics overview (supply, distribution, lock")
     const holderGrowthCommand = program.command("growth").description("track holder count over time")
@@ -150,13 +169,27 @@ export const createCommands = (cctx: CliContext) => {
     const portfolioCommand = program.command("portfolio").description("Your complete ITA token portfolio value")
 
     // Watcher and Alerting
+    // TODO : B
     const watchPriceCommand = program.command("watch").command("price").description("Real-time monitoring of price")
     const alertPriceCommand = program.command("set") // TODO : implement alert configuration 
 
     // Getting Snapshot
     const snapshotCommand = program.command("snapshot")
     const holdersSnapshotCommand = snapshotCommand.command("holders")
+        .requiredOption("-o --output <output>", "File path to save the holders snapshot output")
+        .description("Export a snapshot of all current ITA token holders (addresses and balances) to a specified file")
+        .hook("preAction", (thisCommand) => {
+            const opts = thisCommand.opts()
+            if (!fs.existsSync(opts.output)) showFailureAndReturn("The specified output file path does not exist. Please provide a valid path to save the holders snapshot output.");
+        })
     const transactionsSnapshotCommand = snapshotCommand.command("transactions")
+        .requiredOption("-n --number <number>", "Number of transaction to get snapshot (starts from latest one), set 0 for getting all recorded transactions")
+        .requiredOption("-o --output <output>", "File path to save the transactions snapshot output")
+        .description("Export a snapshot of recent ITA token transactions. Specify number of latest transactions to include in the snapshot.")
+        .hook("preAction", (thisCommand) => {
+            const opts = thisCommand.opts()
+            if (!fs.existsSync(opts.output)) showFailureAndReturn("The specified output file path does not exist. Please provide a valid path to save the transactions snapshot output.");
+        })
 
     // The strategy mean user can define a scheduled action (based on these available operations) in autonomous manner, it's so abstract rn, needs to be complete
     const strategyBuilderCommand = program.command("strategy")
@@ -264,7 +297,6 @@ export const createCommands = (cctx: CliContext) => {
         transferCommand,
         batchTransfercommand,
         nativeTransferCommand,
-        createATACommand,
         setAuthorityCommand,
         poolCommand,
         poolInfoCommand,
@@ -277,9 +309,7 @@ export const createCommands = (cctx: CliContext) => {
         swapCommand,
         poolRemoveLiquidityCommand,
         poolCollectFeesCommand,
-        poolClosePosition,
         txListCommand,
-        volumeCommand,
         marketCapCommand,
         tokenomicCommand,
         holderGrowthCommand,
