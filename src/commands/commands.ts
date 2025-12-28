@@ -104,7 +104,6 @@ export const createCommands = (cctx: CliContext) => {
 
     const setAuthorityCommand = program.command("set-authority").option("-a --address", "The authority address")
 
-
     // Operations on Raydium Liquidity Pool
     const poolCommand = program.command("pool")
     const poolInfoCommand = poolCommand.command("info") 
@@ -156,20 +155,16 @@ export const createCommands = (cctx: CliContext) => {
         .option("--priority-level <number>", "Priority fee level: 0=LOW, 1=MEDIUM (default), 2=HIGH, 3=VERY_HIGH, 4=UNSAFE_MAX", "1")
         .description("Swap ITA <-> SOL through the Raydium CPMM pool with optional slippage control; payer defaults to admin")
 
-    // TODO : C
     const poolRemoveLiquidityCommand = poolCommand.command("remove").option("--position-id <string>") // replace appropriate command for CPMM
     const poolCollectFeesCommand = poolCommand.command("collect-fees").description("Claim earned trading fees")
 
     // Analytics and Monitoring
-    const txListCommand = program.command("tx").command("list").description("Recent token transactions")
     const marketCapCommand = program.command("market-cap").description("calculation market capitalization")
     const tokenomicCommand = program.command("tokenomic").description("Complete tokenomics overview (supply, distribution, lock")
-    const holderGrowthCommand = program.command("growth").description("track holder count over time")
     const whaleWatchCommand = program.command("whales").description("Monitor large holders activity")
     const portfolioCommand = program.command("portfolio").description("Your complete ITA token portfolio value")
 
     // Watcher and Alerting
-    // TODO : B
     const watchPriceCommand = program.command("watch").command("price").description("Real-time monitoring of price")
     const alertPriceCommand = program.command("set") // TODO : implement alert configuration 
 
@@ -194,8 +189,9 @@ export const createCommands = (cctx: CliContext) => {
     // The strategy mean user can define a scheduled action (based on these available operations) in autonomous manner, it's so abstract rn, needs to be complete
     const strategyBuilderCommand = program.command("strategy")
         .requiredOption("-f --file <path>", "Path to the strategy file containing operations to execute")
-        .option("-s --schedule", "Enable scheduling mode - operations with timeToExecute will be scheduled")
-        .option("-d --delay", "Executing each operation with a specific delay, the format should be in second")
+        .option("-s --schedule <number>", "Enable scheduling mode - operations with timeToExecute will be scheduled")
+        .option("-d --delay <number>", "Executing each operation with a specific delay, the format should be in second")
+        .option("-v --verbose", "Enable verbose output (prints detailed logs of each operation in batch strategy mode)")
         .hook("preAction", (thisCommand) => {
             const opts = thisCommand.opts();
             if (opts.schedule && opts.delay) {
@@ -309,10 +305,8 @@ export const createCommands = (cctx: CliContext) => {
         swapCommand,
         poolRemoveLiquidityCommand,
         poolCollectFeesCommand,
-        txListCommand,
         marketCapCommand,
         tokenomicCommand,
-        holderGrowthCommand,
         whaleWatchCommand,
         portfolioCommand,
         watchPriceCommand,

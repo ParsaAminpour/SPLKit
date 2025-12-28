@@ -89,7 +89,7 @@ export const strategyBuilder = async(_cctx: CliContext, _raydium: Raydium, _stra
     for (const op of operations) {
         const opRes = await operationMapper(_cctx, op)
         if (!opRes.ok) failureCount.push({ id: op.id, operation: op.operation, reason: opRes.error })
-        if (_withDelay) await new Promise(r => setTimeout(r, 10));
+        if (_withDelay) await new Promise(r => setTimeout(r, _withDelay));
     }
     return Ok({ 
         operationSucceedCount: operations.length - failureCount.length,

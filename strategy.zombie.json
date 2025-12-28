@@ -1,0 +1,472 @@
+[
+    {
+        "id": "sol_dist_1",
+        "operation": "transfer",
+        "assetPDA": "So11111111111111111111111111111111111111112",
+        "fromKp": "admin",
+        "toPk": "./wallets/wallet1.json",
+        "amount": 600000000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "sol_dist_2",
+        "operation": "transfer",
+        "assetPDA": "So11111111111111111111111111111111111111112",
+        "fromKp": "admin",
+        "toPk": "./wallets/wallet2.json",
+        "amount": 550000000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "sol_dist_3",
+        "operation": "transfer",
+        "assetPDA": "So11111111111111111111111111111111111111112",
+        "fromKp": "admin",
+        "toPk": "./wallets/wallet3.json",
+        "amount": 580000000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "sol_dist_4",
+        "operation": "transfer",
+        "assetPDA": "So11111111111111111111111111111111111111112",
+        "fromKp": "admin",
+        "toPk": "./wallets/wallet4.json",
+        "amount": 520000000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "sol_dist_5",
+        "operation": "transfer",
+        "assetPDA": "So11111111111111111111111111111111111111112",
+        "fromKp": "admin",
+        "toPk": "./wallets/wallet5.json",
+        "amount": 610000000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "sol_dist_6",
+        "operation": "transfer",
+        "assetPDA": "So11111111111111111111111111111111111111112",
+        "fromKp": "admin",
+        "toPk": "./wallets/wallet6.json",
+        "amount": 280000000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "sol_dist_7",
+        "operation": "transfer",
+        "assetPDA": "So11111111111111111111111111111111111111112",
+        "fromKp": "admin",
+        "toPk": "./wallets/wallet7.json",
+        "amount": 330000000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "sol_dist_8",
+        "operation": "transfer",
+        "assetPDA": "So11111111111111111111111111111111111111112",
+        "fromKp": "admin",
+        "toPk": "./wallets/wallet8.json",
+        "amount": 250000000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "sol_dist_9",
+        "operation": "transfer",
+        "assetPDA": "So11111111111111111111111111111111111111112",
+        "fromKp": "admin",
+        "toPk": "./wallets/wallet9.json",
+        "amount": 290000000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "sol_dist_10",
+        "operation": "transfer",
+        "assetPDA": "So11111111111111111111111111111111111111112",
+        "fromKp": "admin",
+        "toPk": "./wallets/wallet10.json",
+        "amount": 310000000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "sol_dist_11",
+        "operation": "transfer",
+        "assetPDA": "So11111111111111111111111111111111111111112",
+        "fromKp": "admin",
+        "toPk": "./wallets/wallet11.json",
+        "amount": 270000000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "sol_dist_12",
+        "operation": "transfer",
+        "assetPDA": "So11111111111111111111111111111111111111112",
+        "fromKp": "admin",
+        "toPk": "./wallets/wallet12.json",
+        "amount": 340000000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "sol_dist_13",
+        "operation": "transfer",
+        "assetPDA": "So11111111111111111111111111111111111111112",
+        "fromKp": "admin",
+        "toPk": "./wallets/wallet13.json",
+        "amount": 260000000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "sol_dist_14",
+        "operation": "transfer",
+        "assetPDA": "So11111111111111111111111111111111111111112",
+        "fromKp": "admin",
+        "toPk": "./wallets/wallet14.json",
+        "amount": 300000000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "sol_dist_15",
+        "operation": "transfer",
+        "assetPDA": "So11111111111111111111111111111111111111112",
+        "fromKp": "admin",
+        "toPk": "./wallets/wallet15.json",
+        "amount": 320000000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "sol_dist_16",
+        "operation": "transfer",
+        "assetPDA": "So11111111111111111111111111111111111111112",
+        "fromKp": "admin",
+        "toPk": "./wallets/wallet16.json",
+        "amount": 280000000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "sol_dist_17",
+        "operation": "transfer",
+        "assetPDA": "So11111111111111111111111111111111111111112",
+        "fromKp": "admin",
+        "toPk": "./wallets/wallet17.json",
+        "amount": 310000000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "sol_dist_18",
+        "operation": "transfer",
+        "assetPDA": "So11111111111111111111111111111111111111112",
+        "fromKp": "admin",
+        "toPk": "./wallets/wallet18.json",
+        "amount": 290000000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "sol_dist_19",
+        "operation": "transfer",
+        "assetPDA": "So11111111111111111111111111111111111111112",
+        "fromKp": "admin",
+        "toPk": "./wallets/wallet19.json",
+        "amount": 270000000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "sol_dist_20",
+        "operation": "transfer",
+        "assetPDA": "So11111111111111111111111111111111111111112",
+        "fromKp": "admin",
+        "toPk": "./wallets/wallet20.json",
+        "amount": 250000000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "mint_lp_1",
+        "operation": "mintTo",
+        "destinationAccount": "./wallets/wallet1.json",
+        "amount": 50000000000000000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "mint_lp_2",
+        "operation": "mintTo",
+        "destinationAccount": "./wallets/wallet2.json",
+        "amount": 50000000000000000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "mint_lp_3",
+        "operation": "mintTo",
+        "destinationAccount": "./wallets/wallet3.json",
+        "amount": 50000000000000000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "mint_lp_4",
+        "operation": "mintTo",
+        "destinationAccount": "./wallets/wallet4.json",
+        "amount": 50000000000000000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "mint_lp_5",
+        "operation": "mintTo",
+        "destinationAccount": "./wallets/wallet5.json",
+        "amount": 50000000000000000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "buy_ita_6",
+        "operation": "swap",
+        "inputMintPDA": "So11111111111111111111111111111111111111112",
+        "outputMintPDA": "3Has4Q1yxdhQgAbByNLpP4EcWDn1nJUpqfSQg3d2W1Am",
+        "callerKp": "./wallets/wallet6.json",
+        "amount": 0.15,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "buy_ita_7",
+        "operation": "swap",
+        "inputMintPDA": "So11111111111111111111111111111111111111112",
+        "outputMintPDA": "3Has4Q1yxdhQgAbByNLpP4EcWDn1nJUpqfSQg3d2W1Am",
+        "callerKp": "./wallets/wallet7.json",
+        "amount": 0.18,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "transfer_ita_6_to_8",
+        "operation": "transfer",
+        "assetPDA": "3Has4Q1yxdhQgAbByNLpP4EcWDn1nJUpqfSQg3d2W1Am",
+        "fromKp": "./wallets/wallet6.json",
+        "toPk": "./wallets/wallet8.json",
+        "amount": 5000000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "buy_ita_9",
+        "operation": "swap",
+        "inputMintPDA": "So11111111111111111111111111111111111111112",
+        "outputMintPDA": "3Has4Q1yxdhQgAbByNLpP4EcWDn1nJUpqfSQg3d2W1Am",
+        "callerKp": "./wallets/wallet9.json",
+        "amount": 0.20,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "transfer_ita_7_to_10",
+        "operation": "transfer",
+        "assetPDA": "3Has4Q1yxdhQgAbByNLpP4EcWDn1nJUpqfSQg3d2W1Am",
+        "fromKp": "./wallets/wallet7.json",
+        "toPk": "./wallets/wallet10.json",
+        "amount": 8000000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "buy_ita_11",
+        "operation": "swap",
+        "inputMintPDA": "So11111111111111111111111111111111111111112",
+        "outputMintPDA": "3Has4Q1yxdhQgAbByNLpP4EcWDn1nJUpqfSQg3d2W1Am",
+        "callerKp": "./wallets/wallet11.json",
+        "amount": 0.17,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "buy_ita_12",
+        "operation": "swap",
+        "inputMintPDA": "So11111111111111111111111111111111111111112",
+        "outputMintPDA": "3Has4Q1yxdhQgAbByNLpP4EcWDn1nJUpqfSQg3d2W1Am",
+        "callerKp": "./wallets/wallet12.json",
+        "amount": 0.22,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "transfer_ita_9_to_13",
+        "operation": "transfer",
+        "assetPDA": "3Has4Q1yxdhQgAbByNLpP4EcWDn1nJUpqfSQg3d2W1Am",
+        "fromKp": "./wallets/wallet9.json",
+        "toPk": "./wallets/wallet13.json",
+        "amount": 12000000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "buy_ita_14",
+        "operation": "swap",
+        "inputMintPDA": "So11111111111111111111111111111111111111112",
+        "outputMintPDA": "3Has4Q1yxdhQgAbByNLpP4EcWDn1nJUpqfSQg3d2W1Am",
+        "callerKp": "./wallets/wallet14.json",
+        "amount": 0.16,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "transfer_ita_11_to_15",
+        "operation": "transfer",
+        "assetPDA": "3Has4Q1yxdhQgAbByNLpP4EcWDn1nJUpqfSQg3d2W1Am",
+        "fromKp": "./wallets/wallet11.json",
+        "toPk": "./wallets/wallet15.json",
+        "amount": 7000000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "buy_ita_16",
+        "operation": "swap",
+        "inputMintPDA": "So11111111111111111111111111111111111111112",
+        "outputMintPDA": "3Has4Q1yxdhQgAbByNLpP4EcWDn1nJUpqfSQg3d2W1Am",
+        "callerKp": "./wallets/wallet16.json",
+        "amount": 0.19,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "transfer_ita_12_to_17",
+        "operation": "transfer",
+        "assetPDA": "3Has4Q1yxdhQgAbByNLpP4EcWDn1nJUpqfSQg3d2W1Am",
+        "fromKp": "./wallets/wallet12.json",
+        "toPk": "./wallets/wallet17.json",
+        "amount": 9000000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "buy_ita_18",
+        "operation": "swap",
+        "inputMintPDA": "So11111111111111111111111111111111111111112",
+        "outputMintPDA": "3Has4Q1yxdhQgAbByNLpP4EcWDn1nJUpqfSQg3d2W1Am",
+        "callerKp": "./wallets/wallet18.json",
+        "amount": 0.175,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "transfer_ita_14_to_19",
+        "operation": "transfer",
+        "assetPDA": "3Has4Q1yxdhQgAbByNLpP4EcWDn1nJUpqfSQg3d2W1Am",
+        "fromKp": "./wallets/wallet14.json",
+        "toPk": "./wallets/wallet19.json",
+        "amount": 6000000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "buy_ita_20",
+        "operation": "swap",
+        "inputMintPDA": "So11111111111111111111111111111111111111112",
+        "outputMintPDA": "3Has4Q1yxdhQgAbByNLpP4EcWDn1nJUpqfSQg3d2W1Am",
+        "callerKp": "./wallets/wallet20.json",
+        "amount": 0.185,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "transfer_ita_16_to_8",
+        "operation": "transfer",
+        "assetPDA": "3Has4Q1yxdhQgAbByNLpP4EcWDn1nJUpqfSQg3d2W1Am",
+        "fromKp": "./wallets/wallet16.json",
+        "toPk": "./wallets/wallet8.json",
+        "amount": 10000000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "transfer_ita_18_to_6",
+        "operation": "transfer",
+        "assetPDA": "3Has4Q1yxdhQgAbByNLpP4EcWDn1nJUpqfSQg3d2W1Am",
+        "fromKp": "./wallets/wallet18.json",
+        "toPk": "./wallets/wallet6.json",
+        "amount": 8500000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "transfer_ita_20_to_11",
+        "operation": "transfer",
+        "assetPDA": "3Has4Q1yxdhQgAbByNLpP4EcWDn1nJUpqfSQg3d2W1Am",
+        "fromKp": "./wallets/wallet20.json",
+        "toPk": "./wallets/wallet11.json",
+        "amount": 11000000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "transfer_ita_13_to_19",
+        "operation": "transfer",
+        "assetPDA": "3Has4Q1yxdhQgAbByNLpP4EcWDn1nJUpqfSQg3d2W1Am",
+        "fromKp": "./wallets/wallet13.json",
+        "toPk": "./wallets/wallet19.json",
+        "amount": 7500000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "buy_ita_8",
+        "operation": "swap",
+        "inputMintPDA": "So11111111111111111111111111111111111111112",
+        "outputMintPDA": "3Has4Q1yxdhQgAbByNLpP4EcWDn1nJUpqfSQg3d2W1Am",
+        "callerKp": "./wallets/wallet8.json",
+        "amount": 0.14,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "transfer_ita_15_to_20",
+        "operation": "transfer",
+        "assetPDA": "3Has4Q1yxdhQgAbByNLpP4EcWDn1nJUpqfSQg3d2W1Am",
+        "fromKp": "./wallets/wallet15.json",
+        "toPk": "./wallets/wallet20.json",
+        "amount": 5500000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "buy_ita_10",
+        "operation": "swap",
+        "inputMintPDA": "So11111111111111111111111111111111111111112",
+        "outputMintPDA": "3Has4Q1yxdhQgAbByNLpP4EcWDn1nJUpqfSQg3d2W1Am",
+        "callerKp": "./wallets/wallet10.json",
+        "amount": 0.165,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      },
+      {
+        "id": "transfer_ita_17_to_12",
+        "operation": "transfer",
+        "assetPDA": "3Has4Q1yxdhQgAbByNLpP4EcWDn1nJUpqfSQg3d2W1Am",
+        "fromKp": "./wallets/wallet17.json",
+        "toPk": "./wallets/wallet12.json",
+        "amount": 9500000,
+        "priorityLevel": 2,
+        "timeToExecute": null
+      }
+]

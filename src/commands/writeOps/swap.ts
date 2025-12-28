@@ -17,6 +17,7 @@ import { confirmOrExit, showWarning, swapCallbackMessage, swapProcessingMessage 
 import { Result, Ok, Err } from '../../types/share'
 import { loadKeypair } from '../../utils/utils'
 import { getPriorityFeeInfo, PriorityLevel } from '../../utils/transactionUtils'
+import { calculatePriceImpact, getPricePredict } from '../readOps/swapInfo'
 // import { apiSwapBaseOut } from './helpers'
 
 export enum SwapDirection {
@@ -40,7 +41,7 @@ export const swapITAToken = async (
         const [inputSymbol, outputSymbol] = direction == SwapDirection.BUY ? ["SOL", "ITA"] : ["ITA", "SOL"];
         const inputAmount = new BN(amountIn)
         const inputMint = direction == SwapDirection.BUY ? NATIVE_MINT.toBase58() : cctx.itaTokenMintPDA.toBase58()
-      
+
         let poolInfo: ApiV3PoolInfoStandardItemCpmm
         let poolKeys: CpmmKeys | undefined
         let rpcData: CpmmParsedRpcData
@@ -59,6 +60,9 @@ export const swapITAToken = async (
         if (inputMint !== poolInfo.mintA.address && inputMint !== poolInfo.mintB.address) return Err('input mint does not match pool')
         const baseIn = direction == SwapDirection.BUY && NATIVE_MINT.toBase58() === poolInfo.mintA.address // base is typically refers to SOL
         const [inputDecimal, outputDecimal] = direction == SwapDirection.BUY ? [poolInfo.mintA.decimals, poolInfo.mintB.decimals] : [poolInfo.mintB.decimals, poolInfo.mintA.decimals]
+        const [reserveInput, reserveOutput] = direction == SwapDirection.BUY
+          ? [poolInfo.mintAmountA, poolInfo.mintAmountB]
+          : [poolInfo.mintAmountB, poolInfo.mintAmountA]
 
         const swapResult = CurveCalculator.swapBaseInput(
             inputAmount,
@@ -78,15 +82,24 @@ export const swapITAToken = async (
         const estimate = await getPriorityFeeInfo(cctx.heliusSDK, cctx.configs.ita_token_mint_pda, priorityLevel)
         if (!estimate.ok) return Err(`There is an error in fetching priority estimation fee\n${estimate.error}`)
         if (askBeforeAction) {
-          consola.info("Swap preview based on your input:");
-          consola.log(`- You send (input amount): ${swapResultAmountIn} ~ ${swapResultAmountIn / (10 ** inputDecimal)} ${inputSymbol}`);
-          consola.log(`- You receive (output amount): ${swapResultAmountOut} ~ ${swapResultAmountOut / (10 ** outputDecimal)} ${outputSymbol}`);
-          consola.log(`- Estimated trade fee: ${tradeFee.toString()} ~ ${tradeFee / (10 ** inputDecimal)} SOL`);
-          consola.log(`- Priority fee is on ${PriorityLevel[priorityLevel]} level with amount of ${estimate.value} per compute unit\n`)
-          await confirmOrExit(
-            "Do you want to proceed with the swap using the above data?",
-            "Swap operation has been terminated by the user."
-          )
+            const pricePredict = await getPricePredict(cctx, swapResultAmountIn, direction, baseIn)
+            const priceImpact = calculatePriceImpact(reserveInput, reserveOutput, swapResultAmountIn, poolInfo.feeRate)
+            consola.info("Swap preview based on your input:");
+            consola.log(`- You send (input amount): ${swapResultAmountIn} ~ ${swapResultAmountIn / (10 ** inputDecimal)} ${inputSymbol}`);
+            consola.log(`- You receive (output amount): ${swapResultAmountOut} ~ ${swapResultAmountOut / (10 ** outputDecimal)} ${outputSymbol}`);
+            consola.log(`- Estimated trade fee: ${tradeFee.toString()} ~ ${tradeFee / (10 ** inputDecimal)} SOL`);
+            consola.log(`- Priority fee is on ${PriorityLevel[priorityLevel]} level with amount of ${estimate.value} per compute unit\n`)
+            if (pricePredict.ok) {
+                consola.log(`- Predicted price after swap: ITA worth ${pricePredict.value.newPrice} per 1SOL`);
+                consola.log(`- Estimated price impact: ${pricePredict.value.priceImpact.toFixed(2)}%`);
+            } else {
+                consola.warn(`- Unable to predict price after swap: ${pricePredict.error}`);
+                consola.log(`- Estimated price impact (fallback calculation): ${priceImpact.toFixed(2)}%`);
+            }
+            await confirmOrExit(
+              "Do you want to proceed with the swap using the above data?",
+              "Swap operation has been terminated by the user."
+            )
         }
       
         const payer = payerKpLoc == "admin" ? cctx.configs.admin_wallet_keypair!.publicKey : loadKeypair(payerKpLoc).publicKey

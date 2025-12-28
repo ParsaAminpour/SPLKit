@@ -5,6 +5,7 @@ import Table from 'cli-table3';
 import { consola } from "consola";
 import { formatNumber, formatPercentage } from "../../utils/messageUtils";
 import * as constant from "../constants"
+import { calculatePriceImpact } from "./swapInfo";
 
 interface Config {
     id: string,
@@ -257,12 +258,16 @@ export const getPoolPrice = async(cctx : CliContext, options: any): Promise<any>
            return 
        }
         const price = poolInfo.price;
+        consola.log(poolInfo.mintAmountA*1e9, poolInfo.mintAmountB*1e9, 1e9, poolInfo.feeRate)
         
+        const mintAReserve = BigInt(Math.floor(poolInfo.mintAmountA * 1e9)) // SOL
+        const mintBReserve = BigInt(Math.floor(poolInfo.mintAmountB * 1e9)) // ITA
+        const priceImpact = calculatePriceImpact(Number(mintAReserve), Number(mintBReserve), 1e9, poolInfo.feeRate)
         const priceTable = new Table({
-            head: ['Pool ID', 'Price'],
+            head: ['Pool ID', 'Price (1SOL ~ ?ITA)'],
             style: { head: ['cyan'] }
         });
-        priceTable.push([options.poolid, formatNumber(price)]);        
+        priceTable.push([options.poolid, `${formatNumber(price)} with price impact of ${priceImpact.toFixed(2)}%`]);
         console.log(priceTable.toString());
         return price;
     } catch (error: any) {
