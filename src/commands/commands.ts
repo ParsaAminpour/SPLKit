@@ -191,6 +191,7 @@ export const createCommands = (cctx: CliContext) => {
         .requiredOption("-f --file <path>", "Path to the strategy file containing operations to execute")
         .option("-s --schedule <number>", "Enable scheduling mode - operations with timeToExecute will be scheduled")
         .option("-d --delay <number>", "Executing each operation with a specific delay, the format should be in second")
+        .option("--starts-with <string>", "Strating iterating the operations with a specific operation ID")
         .option("-v --verbose", "Enable verbose output (prints detailed logs of each operation in batch strategy mode)")
         .hook("preAction", (thisCommand) => {
             const opts = thisCommand.opts();

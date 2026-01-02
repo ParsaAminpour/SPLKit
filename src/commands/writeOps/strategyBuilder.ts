@@ -1,17 +1,18 @@
 import { initSdk } from "../../configs/poolConfig";
 import { CliContext } from "@/index";
-import { mintCallbackMessage, showFailure, strategyCallbackMessage, strategyProcessingMessage, swapCallbackMessage, transferCallbackMessage } from "../../utils/messageUtils";
+import { confirmOrExit, mintCallbackMessage, showFailure, showWarning, strategyCallbackMessage, strategyProcessingMessage, swapCallbackMessage, transferCallbackMessage } from "../../utils/messageUtils";
 import { Raydium } from "@raydium-io/raydium-sdk-v2";
 import fs from "fs"
 import { showFailureAndReturn } from "../../utils/messageUtils";
 import { beforeStrategyOpsCheck } from "../../hooks/beforeOperationHook"
 import { mintToken } from "./mint";
-import { SwapDirection, swapITAToken } from "./swap";
-import { NATIVE_MINT } from "@solana/spl-token";
+import { getSwapITATokenIx, SwapDirection, swapITAToken } from "./swap";
+import { createTransferInstruction, NATIVE_MINT, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync, getOrCreateAssociatedTokenAccount } from "@solana/spl-token";
 import { nativeTransfer, transferToken } from "./transfer";
 import { loadKeypair } from "../../utils/utils";
 import { PublicKey } from "@metaplex-foundation/js";
 import { Result, Ok, Err } from "../../types/share";
+import { sendAndConfirmTransaction, SystemProgram, Transaction, TransactionInstruction, TransactionInstructionCtorFields } from "@solana/web3.js";
 
 export interface MintToOp {
     id: string,
@@ -26,7 +27,7 @@ export interface TransferOp {
     id: string,
     operation: "transfer",
     assetPDA: string,
-    fromKp: string,
+    fromKp?: string, // Optional when inside bundle - bundle provides the keypair
     toPk: string,
     amount: number,
     priorityLevel?: number, // default is 2
@@ -38,13 +39,24 @@ export interface SwapOp {
     operation: "swap",
     inputMintPDA: string,
     outputMintPDA: string,
-    callerKp: string,
+    callerKp?: string, // Optional when inside bundle - bundle provides the keypair
     amount: number,
     priorityLevel?: number, // default is 2
     timeToExecute?: number | null
 }
 
-type StrategyOperation = MintToOp | TransferOp | SwapOp
+type IndividualOperation = MintToOp | TransferOp | SwapOp
+
+export interface BundleOp {
+    id: string,
+    operation: "bundle",
+    operations: IndividualOperation[],
+    callerKp: string,
+    priorityLevel?: number, // default is 2, applies to the entire bundle
+    timeToExecute?: number | null
+}
+
+type StrategyOperation = IndividualOperation | BundleOp
 
 type StrategyFileContent = StrategyOperation[]
 
@@ -58,8 +70,18 @@ type Success = {
     operationFailedCount: number,
 }
 
+type TransactionIx = Transaction | TransactionInstruction | TransactionInstructionCtorFields
+
 // TODO : implement the scheduling feature for this command handler.
-export const strategyBuilder = async(_cctx: CliContext, _raydium: Raydium, _strategyFileRoute: string, _isScheduled: boolean, _withDelay?: number): Promise<Result<Success>> => {
+export const strategyBuilder = async (
+    _cctx: CliContext,
+    _raydium: Raydium,
+    _strategyFileRoute: string,
+    _isScheduled: boolean,
+    _withDelay?: number,
+    startsWith?: string,
+    askBeforeAction: boolean = false
+): Promise<Result<Success>> => {
     if (!fs.existsSync(_strategyFileRoute)) showFailureAndReturn("The target file doesn't exist")
     if (!_strategyFileRoute.endsWith(".json")) {
         return Err("The strategy file must be a .json file.");
@@ -72,8 +94,22 @@ export const strategyBuilder = async(_cctx: CliContext, _raydium: Raydium, _stra
         if (!Array.isArray(parsed)) showFailureAndReturn("Strategy file must contain an array of operations");
         
         for (const op of parsed) {
-            if (!op.operation || !["mintTo", "transfer", "swap"].includes(op.operation)) {
-                showFailureAndReturn(`Invalid operation type: ${op.operation}. Must be one of: mintTo, transfer, swap`);
+            if (!op.operation || !["mintTo", "transfer", "swap", "bundle"].includes(op.operation)) {
+                showFailureAndReturn(`Invalid operation type: ${op.operation}. Must be one of: mintTo, transfer, swap, bundle`);
+            }
+            if (op.operation === "bundle") {
+                const bundleOp = op as BundleOp;
+                if (!bundleOp.operations || !Array.isArray(bundleOp.operations) || bundleOp.operations.length === 0) {
+                    showFailureAndReturn(`Bundle operation ${bundleOp.id} must contain a non-empty array of operations`);
+                }
+                if (!bundleOp.callerKp) {
+                    showFailureAndReturn(`Bundle operation ${bundleOp.id} must have 'callerKp' specified at the bundle level`);
+                }
+                for (const bundledOp of bundleOp.operations) {
+                    if (!bundledOp.operation || !["mintTo", "transfer", "swap"].includes(bundledOp.operation)) {
+                        showFailureAndReturn(`Invalid operation type in bundle ${bundleOp.id}: ${bundledOp.operation}. Must be one of: mintTo, transfer, swap`);
+                    }
+                }
             }
         }
         operations = parsed;
@@ -81,9 +117,27 @@ export const strategyBuilder = async(_cctx: CliContext, _raydium: Raydium, _stra
         return Err("The strategy file is not a valid JSON format or it's empty");
     }
     
+    if (startsWith) {
+        const startIndex = operations.findIndex(op => op.id === startsWith);
+        if (startIndex === -1) {
+            return Err(`Could not find operation with id == ${startsWith}`);
+        }
+        operations = operations.slice(startIndex);
+    }
+
     const result = beforeStrategyOpsCheck(operations, _isScheduled);
     if (!result.ok) {
         return Err(result.error);
+    }
+
+    if (askBeforeAction) {
+        const { transferCount, swapCount, mintToCount, bundleCount } = operationCounter(operations);
+        console.log(`There are ${transferCount} transfer operations, ${swapCount} swap operations, ${mintToCount} mintTo operations, and ${bundleCount} bundle operations in the strategy file.`);
+        await confirmOrExit(
+            `Do you want to proceed with the strategy using the following data?
+            ${transferCount} transfer operations, ${swapCount} swap operations, ${mintToCount} mintTo operations, and ${bundleCount} bundle operations`,
+            "Strategy execution has been terminated by the user."
+        )
     }
 
     for (const op of operations) {
@@ -96,6 +150,7 @@ export const strategyBuilder = async(_cctx: CliContext, _raydium: Raydium, _stra
         operationFailedCount: failureCount.length,
     })
 }
+
 
 const operationMapper = async(cctx: CliContext, op: StrategyOperation): Promise<Result<string>> => {
     const raydium = await initSdk(cctx)
@@ -110,15 +165,29 @@ const operationMapper = async(cctx: CliContext, op: StrategyOperation): Promise<
             return Ok(mintRes.value.split(",")[0])
 
         case "swap":
-            const swapRes = await swapITAToken(cctx, raydium, cctx.configs.raydium_pool_id, op.callerKp, op.amount, op.inputMintPDA == NATIVE_MINT.toBase58() ? SwapDirection.BUY : SwapDirection.SELL, false);
+            if (!op.callerKp) {
+                return Err(`Operation ID: ${op.id} | Standalone swap operation must have 'callerKp' specified`)
+            }
+            const swapRes = await swapITAToken(
+                cctx,
+                raydium, 
+                cctx.configs.raydium_pool_id, 
+                op.callerKp, 
+                op.amount, 
+                op.inputMintPDA == NATIVE_MINT.toBase58() ? SwapDirection.BUY : SwapDirection.SELL,
+                false
+            );
             if(!swapRes.ok) { 
-                swapCallbackMessage(true, undefined, `Operation ID: ${op.id} | ${swapRes.error}`) 
+                swapCallbackMessage(true, undefined, `Operation ID: ${op.id} | ${swapRes.error}`)
                 return Err(swapRes.error)
             }
             swapCallbackMessage(false, swapRes.value)
             return Ok(swapRes.value)
 
         case "transfer":
+            if (!op.fromKp) {
+                return Err(`Operation ID: ${op.id} | Standalone transfer operation must have 'fromKp' specified`)
+            }
             const fromKp = op.fromKp == "admin" ? cctx.configs.admin_wallet_keypair : loadKeypair(op.fromKp)
             if (op.assetPDA == cctx.configs.ita_token_mint_pda) {
                 const transferRes = await transferToken(cctx, fromKp!, op.toPk, op.amount, false)
@@ -138,15 +207,116 @@ const operationMapper = async(cctx: CliContext, op: StrategyOperation): Promise<
                 transferCallbackMessage(false, transferRes.value)
                 return Ok(transferRes.value)
             }
+            break;
+
+        case "bundle":
+            const bundleRes = await bundleOperations(cctx, raydium, op)
+            if (!bundleRes.ok) {
+                return Err(bundleRes.error)
+            }
+            return bundleRes
     }
     return Ok()
 }
+
+export const bundleOperations = async(cctx: CliContext, raydium: Raydium, op: BundleOp): Promise<Result<string>> => {
+    const tx = new Transaction()
+    
+    const bundleKeypairPath = op.callerKp
+    if (!bundleKeypairPath) {
+        return Err(`Bundle operation ${op.id} must have 'callerKp' specified at the bundle level`)
+    }
+    const bundleKeypair = bundleKeypairPath == "admin" ? cctx.configs.admin_wallet_keypair! : loadKeypair(bundleKeypairPath)
+
+    for (const bundledOp of op.operations) {
+        switch(bundledOp.operation) {
+            case "swap":
+                const swapIxRes = await getSwapITATokenIx(
+                    cctx,
+                    raydium,
+                    cctx.configs.raydium_pool_id,
+                    bundleKeypairPath, // Use bundle-level callerKp
+                    bundledOp.amount,
+                    bundledOp.inputMintPDA == NATIVE_MINT.toBase58() ? SwapDirection.BUY : SwapDirection.SELL,
+                    bundledOp.priorityLevel
+                )
+                if(!swapIxRes.ok) return Err(swapIxRes.error)
+                tx.add(swapIxRes.value)
+                break;
+
+            case "transfer":
+                const senderTokenAccount = getAssociatedTokenAddressSync(
+                    cctx.itaTokenMintPDA,
+                    bundleKeypair.publicKey,
+                    false,
+                    TOKEN_PROGRAM_ID,
+                    ASSOCIATED_TOKEN_PROGRAM_ID
+                )
+                const destinationTokenAccount = await getOrCreateAssociatedTokenAccount(
+                    cctx.connection,
+                    bundleKeypair,
+                    new PublicKey(cctx.itaTokenMintPDA),
+                    new PublicKey(bundledOp.toPk)
+                )
+
+                let transferIx: TransactionIx
+                if (bundledOp.assetPDA == cctx.configs.ita_token_mint_pda) {
+                    transferIx = createTransferInstruction(senderTokenAccount, destinationTokenAccount.address, bundleKeypair.publicKey, bundledOp.amount)
+                } else if (bundledOp.assetPDA == NATIVE_MINT.toBase58()) {
+                    transferIx = SystemProgram.transfer({
+                        fromPubkey: bundleKeypair.publicKey,
+                        toPubkey: new PublicKey(bundledOp.toPk),
+                        lamports: bundledOp.amount,
+                    })
+                } else {
+                    showWarning("Attention: You are transfering with unknown token PDA!")
+                    transferIx = createTransferInstruction(senderTokenAccount, destinationTokenAccount.address, bundleKeypair.publicKey, bundledOp.amount)
+                }
+                tx.add(transferIx)
+                break
+
+            case "mintTo":
+                // mintTo operation requires one mint and one transfer after that
+                // However, in traditional bundling, it's not guaranteed that the mint instruction will go before the transfer
+        }
+    }
+
+    await sendAndConfirmTransaction(
+        cctx.connection,
+        tx,
+        [bundleKeypair] // Use bundle keypair for signing
+    )
+    return Ok("All operations in this bundle executed successfully")
+}
+
+const operationCounter = (ops: StrategyOperation[]): { transferCount: number, swapCount: number, mintToCount: number, bundleCount: number } => {
+    let transferCount = 0;
+    let swapCount = 0;
+    let mintToCount = 0;
+    let bundleCount = 0;
+    for (const op of ops) {
+        if (op.operation === "transfer") transferCount++;
+        if (op.operation === "swap") swapCount++;
+        if (op.operation === "mintTo") mintToCount++;
+        if (op.operation === "bundle") {
+            bundleCount++;
+            const bundleOp = op as BundleOp;
+            for (const bundledOp of bundleOp.operations) {
+                if (bundledOp.operation === "transfer") transferCount++;
+                if (bundledOp.operation === "swap") swapCount++;
+                if (bundledOp.operation === "mintTo") mintToCount++;
+            }
+        }
+    }
+    return { transferCount, swapCount, mintToCount, bundleCount };
+}
+
 
 export const strategyBuilderHandler = async(cctx: CliContext, options: any) => {
     const raydium = await initSdk(cctx)
     try {
         strategyProcessingMessage()
-        const result = await strategyBuilder(cctx, raydium, options.file, options.schedule, options.delay)
+        const result = await strategyBuilder(cctx, raydium, options.file, options.schedule, options.delay, options.startsWith, true)
         !result.ok 
             ? strategyCallbackMessage(true, undefined, undefined, result.error) 
             : strategyCallbackMessage(false, result.value.operationSucceedCount, result.value.operationFailedCount, undefined); 
