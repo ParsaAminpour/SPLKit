@@ -7,13 +7,12 @@ import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token'
 export const txVersion = TxVersion.V0 // or TxVersion.LEGACY
 
 let raydium: Raydium | undefined
-export const initSdk = async (cctx: CliContext, params?: { loadToken?: boolean }) => {
-    if (raydium) return raydium
+export const initSdk = async (cctx: CliContext, params?: { loadToken?: boolean }, ownerKp?: Keypair) => {
     const connection = cctx.connection 
     if (cctx.connection.rpcEndpoint === clusterApiUrl('mainnet-beta'))
     console.log(`connect to rpc ${connection.rpcEndpoint} in ${cctx.configs.cluster}`)
     
-    const owner = cctx.configs.admin_wallet_keypair
+    const owner = ownerKp ? ownerKp : cctx.configs.admin_wallet_keypair
     const cluster = cctx.configs.cluster as Cluster
 
     raydium = await Raydium.load({

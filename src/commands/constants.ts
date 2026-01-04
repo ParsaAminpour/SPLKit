@@ -3,6 +3,7 @@ import { PublicKey } from "@solana/web3.js";
 export const ITA_TOKEN_SEED = "ita_token_seed"
 export const TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
 export const BPS_RATIO = 10_000;
+export const TX_INTERVAL = 1000;
 
 export const raydiumDevnetPrograms = {
     launchLab: "DRay6fNdQ5J82H7xV6uq2aV3mWzUZ1J4PgSKsWgptcm6",

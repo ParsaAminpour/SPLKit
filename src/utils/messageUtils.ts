@@ -147,7 +147,8 @@ export const strategyCallbackMessage = (isFailed: boolean, successCount?: number
         const details = reason ? `Reason: ${reason}` : "One or more operations in the strategy failed";
         showFailure(message, details);
     } else {
-        const message = `Strategy Execution Success! 🎉 (${successCount} succeeded, ${failureCount} failed)`;
+        let message = `Strategy Execution Success! 🎉 (${successCount} succeeded, ${failureCount} failed)\n`;
+        message += "All logs recorded in the logs folder\n";
         showSuccess(message);
     }
 }

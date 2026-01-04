@@ -1,8 +1,12 @@
 import { web3 } from "@coral-xyz/anchor";
 import { HeliusClient } from "helius-sdk";
 import { Result, Ok, Err } from "../types/share";
+import { Connection } from "@solana/web3.js";
+import { Transaction } from "@solana/web3.js";
+import { Keypair } from "@solana/web3.js";
+import { sendAndConfirmTransaction } from "@solana/web3.js";
+import { TX_INTERVAL } from "../commands/constants";
 
-// Set reasonable bounds
 const MIN_UNITS = 10000;
 const MAX_UNITS = 1400000; // Solana's max per transaction
 
@@ -31,6 +35,22 @@ export const confirmTransaction = async (
         await new Promise(resolve => setTimeout(resolve, pollInterval));
     }
     throw new Error(`Transaction confirmation timeout after ${timeout}ms`);
+}
+
+export const executeTransactions = async(connection: Connection, transactionList: Transaction[], payer: Keypair):Promise<PromiseSettledResult<string>[]> => {
+  let result:PromiseSettledResult<string>[] = [];
+  let staggeredTransactions:Promise<string>[] = transactionList.map((transaction, i, allTx) => {
+      return (new Promise((resolve) => {
+          setTimeout(() => {
+              console.log(`Requesting Transaction ${i+1}/${allTx.length}`);                
+              connection.getLatestBlockhash()
+                  .then(recentHash=>transaction.recentBlockhash = recentHash.blockhash)
+                  .then(()=>sendAndConfirmTransaction(connection,transaction,[payer])).then(resolve);
+          }, i * TX_INTERVAL);
+       })
+  )})
+  result = await Promise.allSettled(staggeredTransactions);
+  return result;
 }
 
 export enum PriorityLevel { LOW, MEDIUM, HIGH, VERY_HIGH, UNSAFE_MAX }

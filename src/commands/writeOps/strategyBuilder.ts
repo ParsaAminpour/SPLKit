@@ -12,7 +12,8 @@ import { nativeTransfer, transferToken } from "./transfer";
 import { loadKeypair } from "../../utils/utils";
 import { PublicKey } from "@metaplex-foundation/js";
 import { Result, Ok, Err } from "../../types/share";
-import { sendAndConfirmTransaction, SystemProgram, Transaction, TransactionInstruction, TransactionInstructionCtorFields } from "@solana/web3.js";
+import { Keypair, SystemProgram, Transaction, TransactionInstruction, TransactionInstructionCtorFields } from "@solana/web3.js";
+import { executeTransactions } from "../../utils/transactionUtils";
 
 export interface MintToOp {
     id: string,
@@ -75,7 +76,6 @@ type TransactionIx = Transaction | TransactionInstruction | TransactionInstructi
 // TODO : implement the scheduling feature for this command handler.
 export const strategyBuilder = async (
     _cctx: CliContext,
-    _raydium: Raydium,
     _strategyFileRoute: string,
     _isScheduled: boolean,
     _withDelay?: number,
@@ -141,7 +141,19 @@ export const strategyBuilder = async (
     }
 
     for (const op of operations) {
-        const opRes = await operationMapper(_cctx, op)
+        let callerKp: Keypair
+        if (op.operation === "bundle") {
+            callerKp = op.callerKp == "admin" ? _cctx.configs.admin_wallet_keypair! : loadKeypair(op.callerKp)
+        } else {
+            if (op.operation === "swap") {
+                callerKp = op.callerKp == "admin" ? _cctx.configs.admin_wallet_keypair! : loadKeypair(op.callerKp!)
+            } else if (op.operation === "transfer") {
+                callerKp = op.fromKp == "admin" ? _cctx.configs.admin_wallet_keypair! : loadKeypair(op.fromKp!)
+            } else {
+                callerKp = _cctx.configs.admin_wallet_keypair!
+            }
+        }
+        const opRes = await operationMapper(_cctx, op, callerKp)
         if (!opRes.ok) failureCount.push({ id: op.id, operation: op.operation, reason: opRes.error })
         if (_withDelay) await new Promise(r => setTimeout(r, _withDelay));
     }
@@ -152,11 +164,12 @@ export const strategyBuilder = async (
 }
 
 
-const operationMapper = async(cctx: CliContext, op: StrategyOperation): Promise<Result<string>> => {
-    const raydium = await initSdk(cctx)
+const operationMapper = async(cctx: CliContext, op: StrategyOperation, callerKp: Keypair): Promise<Result<string>> => {
+    const raydium = await initSdk(cctx, undefined, callerKp)
     switch(op.operation) {
-        case "mintTo": 
-            const mintRes = await mintToken(cctx, op.destinationAccount, op.amount);
+        case "mintTo":
+            const normalAmount = op.amount / 1e9
+            const mintRes = await mintToken(cctx, op.destinationAccount, normalAmount);
             if (!mintRes.ok) {
                 mintCallbackMessage(true, undefined, `Operation ID: ${op.id} | ${mintRes.error}`)
                 return Err(mintRes.error)
@@ -190,7 +203,8 @@ const operationMapper = async(cctx: CliContext, op: StrategyOperation): Promise<
             }
             const fromKp = op.fromKp == "admin" ? cctx.configs.admin_wallet_keypair : loadKeypair(op.fromKp)
             if (op.assetPDA == cctx.configs.ita_token_mint_pda) {
-                const transferRes = await transferToken(cctx, fromKp!, op.toPk, op.amount, false)
+                const normalAmount = op.amount / 1e9
+                const transferRes = await transferToken(cctx, fromKp!, op.toPk, normalAmount, false)
                 if (!transferRes.ok) { 
                     transferCallbackMessage(true, undefined, `Operation ID: ${op.id} | ${transferRes.error}`) 
                     return Err(transferRes.error)
@@ -214,7 +228,7 @@ const operationMapper = async(cctx: CliContext, op: StrategyOperation): Promise<
             if (!bundleRes.ok) {
                 return Err(bundleRes.error)
             }
-            return bundleRes
+            return Ok(bundleRes.value)
     }
     return Ok()
 }
@@ -258,10 +272,10 @@ export const bundleOperations = async(cctx: CliContext, raydium: Raydium, op: Bu
                     new PublicKey(cctx.itaTokenMintPDA),
                     new PublicKey(bundledOp.toPk)
                 )
-
                 let transferIx: TransactionIx
                 if (bundledOp.assetPDA == cctx.configs.ita_token_mint_pda) {
-                    transferIx = createTransferInstruction(senderTokenAccount, destinationTokenAccount.address, bundleKeypair.publicKey, bundledOp.amount)
+                    const normalAmount = bundledOp.amount / 1e9
+                    transferIx = createTransferInstruction(senderTokenAccount, destinationTokenAccount.address, bundleKeypair.publicKey, normalAmount)
                 } else if (bundledOp.assetPDA == NATIVE_MINT.toBase58()) {
                     transferIx = SystemProgram.transfer({
                         fromPubkey: bundleKeypair.publicKey,
@@ -281,12 +295,13 @@ export const bundleOperations = async(cctx: CliContext, raydium: Raydium, op: Bu
         }
     }
 
-    await sendAndConfirmTransaction(
-        cctx.connection,
-        tx,
-        [bundleKeypair] // Use bundle keypair for signing
-    )
-    return Ok("All operations in this bundle executed successfully")
+    try {
+        const settledResults = await executeTransactions(cctx.connection, [tx], bundleKeypair)
+        return Ok("All operations in this bundle executed successfully with signatures: " + settledResults.map(result => result.status === "fulfilled" ? result.value : result.reason).join(", "))
+    } catch (error) {
+        console.log(`error sending and confirming transaction: ${error}`)
+        return Err(error as string)
+    }
 }
 
 const operationCounter = (ops: StrategyOperation[]): { transferCount: number, swapCount: number, mintToCount: number, bundleCount: number } => {
@@ -313,10 +328,9 @@ const operationCounter = (ops: StrategyOperation[]): { transferCount: number, sw
 
 
 export const strategyBuilderHandler = async(cctx: CliContext, options: any) => {
-    const raydium = await initSdk(cctx)
     try {
         strategyProcessingMessage()
-        const result = await strategyBuilder(cctx, raydium, options.file, options.schedule, options.delay, options.startsWith, true)
+        const result = await strategyBuilder(cctx,options.file, options.schedule, options.delay, options.startsWith, true)
         !result.ok 
             ? strategyCallbackMessage(true, undefined, undefined, result.error) 
             : strategyCallbackMessage(false, result.value.operationSucceedCount, result.value.operationFailedCount, undefined); 
