@@ -1,6 +1,6 @@
 import { initSdk } from "../../configs/poolConfig";
 import { CliContext } from "@/index";
-import { bundleCallbackMessage, confirmOrExit, mintCallbackMessage, showFailure, showWarning, strategyCallbackMessage, strategyProcessingMessage, swapCallbackMessage, transferCallbackMessage } from "../../utils/messageUtils";
+import { bundleCallbackMessage, confirmOrExit, depositCallbackMessage, mintCallbackMessage, showFailure, showWarning, strategyCallbackMessage, strategyProcessingMessage, swapCallbackMessage, transferCallbackMessage } from "../../utils/messageUtils";
 import { Raydium } from "@raydium-io/raydium-sdk-v2";
 import fs from "fs"
 import { showFailureAndReturn } from "../../utils/messageUtils";
@@ -14,7 +14,7 @@ import { PublicKey } from "@metaplex-foundation/js";
 import { Result, Ok, Err } from "../../types/share";
 import { Keypair, SystemProgram, Transaction, TransactionInstruction, TransactionInstructionCtorFields } from "@solana/web3.js";
 import { executeTransactions } from "../../utils/transactionUtils";
-import { getDepositPoolIx } from "./deposit";
+import { depositPool, getDepositPoolIx } from "./deposit";
 
 export interface MintToOp {
     id: string,
@@ -144,11 +144,11 @@ export const strategyBuilder = async (
     }
 
     if (askBeforeAction) {
-        const { transferCount, swapCount, mintToCount, bundleCount } = operationCounter(operations);
-        console.log(`There are ${transferCount} transfer operations, ${swapCount} swap operations, ${mintToCount} mintTo operations, and ${bundleCount} bundle operations in the strategy file.`);
+        const { transferCount, swapCount, mintToCount, depositCount, bundleCount } = operationCounter(operations);
+        console.log(`There are ${transferCount} transfer operations, ${swapCount} swap operations, ${mintToCount} mintTo operations, ${depositCount} deposit operations and ${bundleCount} bundle operations in the strategy file.`);
         await confirmOrExit(
             `Do you want to proceed with the strategy using the following data?
-            ${transferCount} transfer operations, ${swapCount} swap operations, ${mintToCount} mintTo operations, and ${bundleCount} bundle operations`,
+            ${transferCount} transfer operations, ${swapCount} swap operations, ${mintToCount} mintTo operations, ${depositCount} deposit operations and ${bundleCount} bundle operations`,
             "Strategy execution has been terminated by the user."
         )
     }
@@ -234,6 +234,27 @@ const operationMapper = async(cctx: CliContext, op: StrategyOperation, callerKp:
                 return Ok(transferRes.value)
             }
             break;
+
+        case "deposit":
+            if (!op.signer) {
+                return Err(`Operation ID: ${op.id} | Standalone transfer operation must have 'signer' specified`)
+            }
+            const uiAmount = op.amount / 1e9
+            const signer = op.signer == "admin" ? cctx.configs.admin_wallet_keypair : loadKeypair(op.signer)
+            const depositTxRes = await depositPool(
+                cctx, 
+                signer!, 
+                uiAmount, 
+                op.isBase,
+                undefined, 
+                op.priorityLevel
+            )
+            if (!depositTxRes.ok) {
+                depositCallbackMessage(true, undefined, `Operation ID: ${op.id} | ${depositTxRes.error}`)
+                return Err(depositTxRes.error)
+            }
+            depositCallbackMessage(false, depositTxRes.value)
+            return Ok(depositTxRes.value)
 
         case "bundle":
             const bundleRes = await bundleOperations(cctx, raydium, op)
@@ -331,15 +352,17 @@ export const bundleOperations = async(cctx: CliContext, raydium: Raydium, op: Bu
     }
 }
 
-const operationCounter = (ops: StrategyOperation[]): { transferCount: number, swapCount: number, mintToCount: number, bundleCount: number } => {
+const operationCounter = (ops: StrategyOperation[]): { transferCount: number, swapCount: number, mintToCount: number, depositCount: number, bundleCount: number } => {
     let transferCount = 0;
     let swapCount = 0;
     let mintToCount = 0;
+    let depositCount = 0;
     let bundleCount = 0;
     for (const op of ops) {
         if (op.operation === "transfer") transferCount++;
         if (op.operation === "swap") swapCount++;
         if (op.operation === "mintTo") mintToCount++;
+        if (op.operation === "deposit") depositCount++;
         if (op.operation === "bundle") {
             bundleCount++;
             const bundleOp = op as BundleOp;
@@ -347,10 +370,11 @@ const operationCounter = (ops: StrategyOperation[]): { transferCount: number, sw
                 if (bundledOp.operation === "transfer") transferCount++;
                 if (bundledOp.operation === "swap") swapCount++;
                 if (bundledOp.operation === "mintTo") mintToCount++;
+                if (bundledOp.operation=== "deposit") depositCount++;
             }
         }
     }
-    return { transferCount, swapCount, mintToCount, bundleCount };
+    return { transferCount, swapCount, mintToCount, bundleCount, depositCount };
 }
 
 

@@ -15,7 +15,6 @@ export const mintToken = async(cctx: CliContext, to: string, amount: number, pri
         return Err("Admin wallet keypair is not configured in CLI context")
     }
     const adminAddress = cctx.configs.admin_wallet_keypair.publicKey
-    if (to == adminAddress.toBase58()) return Err("admin can not mint to himself")
 
     try {
         // @ts-ignore - Use it later
@@ -61,10 +60,11 @@ export const mintToken = async(cctx: CliContext, to: string, amount: number, pri
 export const mintTokenHandler = async(cctx: CliContext, options: any) => {
     const result = await mintToken(cctx, options.to, options.amount, options.priorityLevel)
     if (result.ok) {
+        console.log(`value: ${result.value}`)
         const [mintTx, transferTx] = (result.value.split(",")[0], result.value.split(",")[1])
         mintCallbackMessage(false, mintTx)
         transferCallbackMessage(false, transferTx)
     } else {
-        mintCallbackMessage(true)
+        mintCallbackMessage(true, undefined, result.error)
     }
 }

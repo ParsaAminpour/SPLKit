@@ -96,6 +96,7 @@ export const getSwapITATokenIx = async(
 }
 
 // NOTE : mintA is typically refers to native mint aka. SOL
+// TODO : payerKpLoc should be replaced with signer:Keypair
 export const swapITAToken = async (
     cctx: CliContext,
     raydium: Raydium,
