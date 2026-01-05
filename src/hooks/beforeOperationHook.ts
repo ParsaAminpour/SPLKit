@@ -16,7 +16,7 @@ const validateIndividualOperation = (op: IndividualOperation, idx: number, isBun
             
         case "transfer":
             if (op.amount == null || typeof op.amount !== "number" || op.amount <= 0) return Err(`Operation ${idx}: transfer requires a positive 'amount' number`);
-            if (!isBundled && (!op.fromKp || typeof op.fromKp !== "string" || op.fromKp.trim() === "")) return Err(`Operation ${idx}: transfer requires a non-empty 'fromKp' string`);
+            if (!isBundled && (!op.signer || typeof op.signer !== "string" || op.signer.trim() === "")) return Err(`Operation ${idx}: transfer requires a non-empty 'signer' string`);
             if (!op.toPk || typeof op.toPk !== "string" || op.toPk.trim() === "") return Err(`Operation ${idx}: transfer requires a non-empty 'toPk' string`);
             if (!op.priorityLevel) op.priorityLevel = PriorityLevel.MEDIUM
             if (op.priorityLevel > 4) return Err(`Operation ${idx}: invalid priority level`)
@@ -26,7 +26,7 @@ const validateIndividualOperation = (op: IndividualOperation, idx: number, isBun
             if (op.amount == null || typeof op.amount !== "number" || op.amount <= 0) return Err(`Operation ${idx}: swap requires a positive 'amount' number`);
             if (!op.inputMintPDA || typeof op.inputMintPDA !== "string" || op.inputMintPDA.trim() === "") return Err(`Operation ${idx}: swap requires a non-empty 'inputMintPDA' string`);
             if (!op.outputMintPDA || typeof op.outputMintPDA !== "string" || op.outputMintPDA.trim() === "") return Err(`Operation ${idx}: swap requires a non-empty 'outputMintPDA' string`);
-            if (!isBundled && (!op.callerKp || typeof op.callerKp !== "string" || op.callerKp.trim() === "")) return Err(`Operation ${idx}: swap requires a non-empty 'callerKp' string`);
+            if (!isBundled && (!op.signer || typeof op.signer !== "string" || op.signer.trim() === "")) return Err(`Operation ${idx}: swap requires a non-empty 'signer' string`);
             if (op.inputMintPDA === op.outputMintPDA) return Err(`Operation ${idx}: swap requires 'inputMintPDA' and 'outputMintPDA' to be different`);
             if (!op.priorityLevel) op.priorityLevel = PriorityLevel.MEDIUM
             if (op.priorityLevel > 4) return Err(`Operation ${idx}: invalid priority level`)

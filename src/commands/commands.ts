@@ -127,7 +127,7 @@ export const createCommands = (cctx: CliContext) => {
     // Raydium Pool Write Operations
     const poolAddLiquidityCommand = poolCommand.command("add") 
         .requiredOption("--amount <number>", "amount of token you want to add to the liquidity pool, should be in normal format like 1 base token if you want to add one")
-        .requiredOption("-f --from-keypair <string>", "Sender keypair JSON path (defaults to admin)")
+        .requiredOption("-f --from-keypair <string>", "Sender keypair JSON path (defaults to admin)", "admin")
         .option("--base", "is this amount associated to the base asset or not")
         .option("--quote", "is this amount associated to the quote asset or not")
         .option("--slippage <number>", "Slippage for adding liquidity in ui format like 2.5 or 3 without any percentage icon, default is 2.5(%)")

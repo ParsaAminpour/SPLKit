@@ -141,6 +141,21 @@ export const swapCallbackMessage = (isFailed: boolean, txId?: string, reason?: s
     }
 }
 
+export const depositCallbackMessage = (isFailed: boolean, txId?: string, reason?: string) => {
+    if (isFailed) {
+        const message = "Deposit Liquidity Failed! ❌";
+        const details = reason ? `Reason: ${reason}` : "No transaction ID available";
+        showFailure(message, details);
+    } else {
+        const message = "Deposit Liquidity Success! 🎉";
+        const details = txId 
+            ? explorerLink(txId)
+            : undefined;
+        showSuccess(message, details);
+    }
+}
+
+
 export const bundleCallbackMessage = (isFailed: boolean, txId?: string, reason?: string) => {
     if (isFailed) {
         const message = "Bundle Transaction Failed! ❌";
@@ -181,6 +196,12 @@ export const mintProcessingMessage = (to: string, amount: number) => {
 export const swapProcessingMessage = (inputMintPDA: string, amount: number) => {
     const [inputMintSymbol, outputMintSymbol] = inputMintPDA == NATIVE_MINT.toBase58() ? ["SOL", "ITA"] : ["ITA", "SOL"]
     startStep(`Swapping ${amount} amount from $${inputMintSymbol} to $${outputMintSymbol}`);
+}
+
+export const depositProcessingMessage = (signer: string, amount: number, isBase: boolean) => {
+    const signerShort = `${signer.slice(0, 4)}...${signer.slice(-4)}`;
+    const tokenType = isBase ? "SOL (base token)" : "ITA (quote token)";
+    startStep(`Adding liquidity: depositing ${amount} ${tokenType} to the pool by ${signerShort}`);
 }
 
 export const strategyProcessingMessage = () => startStep("Executing strategy...");

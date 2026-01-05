@@ -15,7 +15,7 @@ import { mintTokenHandler } from "./commands/writeOps/mint";
 import { transferTokenHandler, nativeTransferHandler, batchTransferHandler } from "./commands/writeOps/transfer";
 import * as utils from "./utils/utils"
 import { poolInfo, getPoolPrice, getPoolStats } from "./commands/readOps/poolInfo"
-import { depositToPool } from "./commands/writeOps/deposit"
+import { depositPoolHandler } from "./commands/writeOps/deposit"
 import { swapITATokenHandler } from "./commands/writeOps/swap";
 import { createPoolHandle } from "./commands/writeOps/createCPMMPool"
 import { strategyBuilderHandler } from "./commands/writeOps/strategyBuilder"
@@ -98,7 +98,7 @@ const main = async() => {
     commands.priceCommand.action(async(options) => await getPoolPrice(cctx, options))
     commands.poolStatsCommand.action(async(options) => await getPoolStats(cctx, options))
 
-    commands.poolAddLiquidityCommand.action(async(options) => await depositToPool(cctx, options))
+    commands.poolAddLiquidityCommand.action(async(options) => await depositPoolHandler(cctx, options))
 
     commands.swapCommand.action(async(options) => await swapITATokenHandler(cctx, options))
     commands.createPoolCommand.action(async(options) => await createPoolHandle(cctx, options))

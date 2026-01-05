@@ -28,7 +28,7 @@ export interface TransferOp {
     id: string,
     operation: "transfer",
     assetPDA: string,
-    fromKp?: string, // Optional when inside bundle - bundle provides the keypair
+    signer?: string, // Optional when inside bundle - bundle provides the keypair
     toPk: string,
     amount: number,
     priorityLevel?: number, // default is 2
@@ -40,8 +40,18 @@ export interface SwapOp {
     operation: "swap",
     inputMintPDA: string,
     outputMintPDA: string,
-    callerKp?: string, // Optional when inside bundle - bundle provides the keypair
+    signer?: string, // Optional when inside bundle - bundle provides the keypair
     amount: number,
+    priorityLevel?: number, // default is 2
+    timeToExecute?: number | null
+}
+
+export interface DepositOP {
+    id: string,
+    operation: "deposit",
+    isBase: boolean, // base refers to SOL
+    amount: number,
+    signer?: string, // Optional when inside bundle - bundle provides the keypair
     priorityLevel?: number, // default is 2
     timeToExecute?: number | null
 }
@@ -52,7 +62,7 @@ export interface BundleOp {
     id: string,
     operation: "bundle",
     operations: IndividualOperation[],
-    callerKp: string,
+    signer: string,
     priorityLevel?: number, // default is 2, applies to the entire bundle
     timeToExecute?: number | null
 }
@@ -102,7 +112,7 @@ export const strategyBuilder = async (
                 if (!bundleOp.operations || !Array.isArray(bundleOp.operations) || bundleOp.operations.length === 0) {
                     showFailureAndReturn(`Bundle operation ${bundleOp.id} must contain a non-empty array of operations`);
                 }
-                if (!bundleOp.callerKp) {
+                if (!bundleOp.signer) {
                     showFailureAndReturn(`Bundle operation ${bundleOp.id} must have 'callerKp' specified at the bundle level`);
                 }
                 for (const bundledOp of bundleOp.operations) {
@@ -143,12 +153,12 @@ export const strategyBuilder = async (
     for (const op of operations) {
         let callerKp: Keypair
         if (op.operation === "bundle") {
-            callerKp = op.callerKp == "admin" ? _cctx.configs.admin_wallet_keypair! : loadKeypair(op.callerKp)
+            callerKp = op.signer == "admin" ? _cctx.configs.admin_wallet_keypair! : loadKeypair(op.signer)
         } else {
             if (op.operation === "swap") {
-                callerKp = op.callerKp == "admin" ? _cctx.configs.admin_wallet_keypair! : loadKeypair(op.callerKp!)
+                callerKp = op.signer == "admin" ? _cctx.configs.admin_wallet_keypair! : loadKeypair(op.signer!)
             } else if (op.operation === "transfer") {
-                callerKp = op.fromKp == "admin" ? _cctx.configs.admin_wallet_keypair! : loadKeypair(op.fromKp!)
+                callerKp = op.signer == "admin" ? _cctx.configs.admin_wallet_keypair! : loadKeypair(op.signer!)
             } else {
                 callerKp = _cctx.configs.admin_wallet_keypair!
             }
@@ -178,14 +188,14 @@ const operationMapper = async(cctx: CliContext, op: StrategyOperation, callerKp:
             return Ok(mintRes.value.split(",")[0])
 
         case "swap":
-            if (!op.callerKp) {
-                return Err(`Operation ID: ${op.id} | Standalone swap operation must have 'callerKp' specified`)
+            if (!op.signer) {
+                return Err(`Operation ID: ${op.id} | Standalone swap operation must have 'signer' specified`)
             }
             const swapRes = await swapITAToken(
                 cctx,
                 raydium, 
                 cctx.configs.raydium_pool_id, 
-                op.callerKp, 
+                op.signer, 
                 op.amount, 
                 op.inputMintPDA == NATIVE_MINT.toBase58() ? SwapDirection.BUY : SwapDirection.SELL,
                 false
@@ -198,10 +208,10 @@ const operationMapper = async(cctx: CliContext, op: StrategyOperation, callerKp:
             return Ok(swapRes.value)
 
         case "transfer":
-            if (!op.fromKp) {
-                return Err(`Operation ID: ${op.id} | Standalone transfer operation must have 'fromKp' specified`)
+            if (!op.signer) {
+                return Err(`Operation ID: ${op.id} | Standalone transfer operation must have 'signer' specified`)
             }
-            const fromKp = op.fromKp == "admin" ? cctx.configs.admin_wallet_keypair : loadKeypair(op.fromKp)
+            const fromKp = op.signer == "admin" ? cctx.configs.admin_wallet_keypair : loadKeypair(op.signer)
             if (op.assetPDA == cctx.configs.ita_token_mint_pda) {
                 const normalAmount = op.amount / 1e9
                 const transferRes = await transferToken(cctx, fromKp!, op.toPk, normalAmount, false)
@@ -238,7 +248,7 @@ const operationMapper = async(cctx: CliContext, op: StrategyOperation, callerKp:
 export const bundleOperations = async(cctx: CliContext, raydium: Raydium, op: BundleOp): Promise<Result<string>> => {
     const tx = new Transaction()
     console.log(`start bundling operation ${op.id}...`)
-    const bundleKeypairPath = op.callerKp
+    const bundleKeypairPath = op.signer
     if (!bundleKeypairPath) {
         return Err(`Bundle operation ${op.id} must have 'callerKp' specified at the bundle level`)
     }
