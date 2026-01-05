@@ -1,0 +1,26 @@
+[
+  {
+    "id": "1",
+    "operation": "bundle",
+    "signer": "./wallets/wallet5.json",
+    "operations": [
+      {
+        "id": "1.1",
+        "operation": "deposit",
+        "isBase": true,
+        "amount": 310000000,
+        "timeToExecute": null
+      },
+      {
+        "id": "1.2",
+        "operation": "swap",
+        "inputMintPDA": "So11111111111111111111111111111111111111112",
+        "outputMintPDA": "3Has4Q1yxdhQgAbByNLpP4EcWDn1nJUpqfSQg3d2W1Am",
+        "amount": 210000000,
+        "timeToExecute": null
+      }
+    ],
+    "priorityLevel": 2,
+    "timeToExecute": null
+  }
+]

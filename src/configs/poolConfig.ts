@@ -4,7 +4,7 @@ import { CliContext } from '@/index'
 import { Keypair } from '@solana/web3.js'
 import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token'
 
-export const txVersion = TxVersion.V0 // or TxVersion.LEGACY
+export const txVersion = TxVersion.LEGACY // TxVersion.V0
 
 let raydium: Raydium | undefined
 export const initSdk = async (cctx: CliContext, params?: { loadToken?: boolean }, ownerKp?: Keypair) => {

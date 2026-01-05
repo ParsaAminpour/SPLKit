@@ -91,7 +91,7 @@ export const transferCallbackMessage = (isFailed: boolean, txId?: string, reason
         const details = reason ? `Reason: ${reason}` : "No transaction ID available";
         showFailure(message, details);
     } else {
-        const message = "Transfer Transaction Success! 🎉";
+        const message = "Transfer Transaction Success!";
         const details = txId 
             ? explorerLink(txId)
             : undefined;
@@ -105,7 +105,7 @@ export const transferNativeCallbackMessage = (isFailed: boolean, txId?: string, 
         const details = reason ? `Reason: ${reason}` : "No transaction ID available";
         showFailure(message, details);
     } else {
-        const message = "Transfer (SOL) Transaction Success! 🎉";
+        const message = "Transfer (SOL) Transaction Success!";
         const details = txId 
             ? explorerLink(txId)
             : undefined;
@@ -119,7 +119,7 @@ export const mintCallbackMessage = (isFailed: boolean, txId?: string, reason?: s
         const details = reason ? `Reason: ${reason}` : "No transaction ID available";
         showFailure(message, details);
     } else {
-        const message = "Mint Transaction Success! 🎉";
+        const message = "Mint Transaction Success!";
         const details = txId 
             ? explorerLink(txId)
             : undefined;
@@ -133,7 +133,7 @@ export const swapCallbackMessage = (isFailed: boolean, txId?: string, reason?: s
         const details = reason ? `Reason: ${reason}` : "No transaction ID available";
         showFailure(message, details);
     } else {
-        const message = "Swap Transaction Success! 🎉";
+        const message = "Swap Transaction Success!";
         const details = txId 
             ? explorerLink(txId)
             : undefined;
@@ -147,7 +147,7 @@ export const depositCallbackMessage = (isFailed: boolean, txId?: string, reason?
         const details = reason ? `Reason: ${reason}` : "No transaction ID available";
         showFailure(message, details);
     } else {
-        const message = "Deposit Liquidity Success! 🎉";
+        const message = "Deposit Liquidity Success!";
         const details = txId 
             ? explorerLink(txId)
             : undefined;
@@ -162,7 +162,7 @@ export const bundleCallbackMessage = (isFailed: boolean, txId?: string, reason?:
         const details = reason ? `Reason: ${reason}` : "No transaction ID available";
         showFailure(message, details);
     } else {
-        const message = "Bundle Transaction Success! 🎉";
+        const message = "Bundle Transaction Success!";
         const details = txId 
             ? explorerLink(txId)
             : undefined;
@@ -176,7 +176,7 @@ export const strategyCallbackMessage = (isFailed: boolean, successCount?: number
         const details = reason ? `Reason: ${reason}` : "One or more operations in the strategy failed";
         showFailure(message, details);
     } else {
-        let message = `Strategy Execution Success! 🎉 (${successCount} succeeded, ${failureCount} failed)\n`;
+        let message = `Strategy Execution Success! (${successCount} succeeded, ${failureCount} failed)\n`;
         message += "All logs recorded in the logs folder\n";
         showSuccess(message);
     }

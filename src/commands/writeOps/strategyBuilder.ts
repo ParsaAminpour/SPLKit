@@ -14,6 +14,7 @@ import { PublicKey } from "@metaplex-foundation/js";
 import { Result, Ok, Err } from "../../types/share";
 import { Keypair, SystemProgram, Transaction, TransactionInstruction, TransactionInstructionCtorFields } from "@solana/web3.js";
 import { executeTransactions } from "../../utils/transactionUtils";
+import { getDepositPoolIx } from "./deposit";
 
 export interface MintToOp {
     id: string,
@@ -51,12 +52,13 @@ export interface DepositOP {
     operation: "deposit",
     isBase: boolean, // base refers to SOL
     amount: number,
+    // slippage?: number,
     signer?: string, // Optional when inside bundle - bundle provides the keypair
     priorityLevel?: number, // default is 2
     timeToExecute?: number | null
 }
 
-type IndividualOperation = MintToOp | TransferOp | SwapOp
+type IndividualOperation = MintToOp | TransferOp | SwapOp | DepositOP
 
 export interface BundleOp {
     id: string,
@@ -104,8 +106,8 @@ export const strategyBuilder = async (
         if (!Array.isArray(parsed)) showFailureAndReturn("Strategy file must contain an array of operations");
         
         for (const op of parsed) {
-            if (!op.operation || !["mintTo", "transfer", "swap", "bundle"].includes(op.operation)) {
-                showFailureAndReturn(`Invalid operation type: ${op.operation}. Must be one of: mintTo, transfer, swap, bundle`);
+            if (!op.operation || !["mintTo", "transfer", "swap", "deposit", "bundle"].includes(op.operation)) {
+                showFailureAndReturn(`Invalid operation type: ${op.operation}. Must be one of: mintTo, transfer, swap, deposit, bundle`);
             }
             if (op.operation === "bundle") {
                 const bundleOp = op as BundleOp;
@@ -113,10 +115,10 @@ export const strategyBuilder = async (
                     showFailureAndReturn(`Bundle operation ${bundleOp.id} must contain a non-empty array of operations`);
                 }
                 if (!bundleOp.signer) {
-                    showFailureAndReturn(`Bundle operation ${bundleOp.id} must have 'callerKp' specified at the bundle level`);
+                    showFailureAndReturn(`Bundle operation ${bundleOp.id} must have 'signer' specified at the bundle level`);
                 }
                 for (const bundledOp of bundleOp.operations) {
-                    if (!bundledOp.operation || !["mintTo", "transfer", "swap"].includes(bundledOp.operation)) {
+                    if (!bundledOp.operation || !["mintTo", "transfer", "swap", "deposit"].includes(bundledOp.operation)) {
                         showFailureAndReturn(`Invalid operation type in bundle ${bundleOp.id}: ${bundledOp.operation}. Must be one of: mintTo, transfer, swap`);
                     }
                 }
@@ -135,6 +137,7 @@ export const strategyBuilder = async (
         operations = operations.slice(startIndex);
     }
 
+    // TODO : Add check for the add liquidity operation
     const result = beforeStrategyOpsCheck(operations, _isScheduled);
     if (!result.ok) {
         return Err(result.error);
@@ -172,7 +175,6 @@ export const strategyBuilder = async (
         operationFailedCount: failureCount.length,
     })
 }
-
 
 const operationMapper = async(cctx: CliContext, op: StrategyOperation, callerKp: Keypair): Promise<Result<string>> => {
     const raydium = await initSdk(cctx, undefined, callerKp)
@@ -247,10 +249,9 @@ const operationMapper = async(cctx: CliContext, op: StrategyOperation, callerKp:
 
 export const bundleOperations = async(cctx: CliContext, raydium: Raydium, op: BundleOp): Promise<Result<string>> => {
     const tx = new Transaction()
-    console.log(`start bundling operation ${op.id}...`)
     const bundleKeypairPath = op.signer
     if (!bundleKeypairPath) {
-        return Err(`Bundle operation ${op.id} must have 'callerKp' specified at the bundle level`)
+        return Err(`Bundle operation ${op.id} must have 'signer' specified at the bundle level`)
     }
     const bundleKeypair = bundleKeypairPath == "admin" ? cctx.configs.admin_wallet_keypair! : loadKeypair(bundleKeypairPath)
 
@@ -300,6 +301,20 @@ export const bundleOperations = async(cctx: CliContext, raydium: Raydium, op: Bu
                 }
                 tx.add(transferIx)
                 break
+            
+            case "deposit":
+                const uiAmount = bundledOp.amount / 1e9
+                const depositIx = await getDepositPoolIx(
+                    cctx, 
+                    bundleKeypair, 
+                    uiAmount, 
+                    bundledOp.isBase, 
+                    undefined, 
+                    bundledOp.priorityLevel
+                )
+                if (!depositIx.ok) return Err(depositIx.error)
+                tx.add(depositIx.value)
+                break
 
             case "mintTo":
                 // mintTo operation requires one mint and one transfer after that
@@ -308,7 +323,6 @@ export const bundleOperations = async(cctx: CliContext, raydium: Raydium, op: Bu
     }
 
     try {
-        console.log(`serializing bundle transaction...`)
         const settledResults = await executeTransactions(cctx.connection, [tx], bundleKeypair)
         return Ok(settledResults.map(result => result.status === "fulfilled" ? result.value : result.reason).join(", "))
     } catch (error) {

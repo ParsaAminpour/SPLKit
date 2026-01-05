@@ -1,8 +1,8 @@
 import { PriorityLevel } from "../utils/transactionUtils";
-import { MintToOp, TransferOp, SwapOp, BundleOp } from "../commands/writeOps/strategyBuilder"
+import { MintToOp, TransferOp, SwapOp, BundleOp, DepositOP } from "../commands/writeOps/strategyBuilder"
 import { Result, Ok, Err } from "../types/share";
 
-type IndividualOperation = MintToOp | TransferOp | SwapOp;
+type IndividualOperation = MintToOp | TransferOp | SwapOp | DepositOP;
 type StrategyOperation = IndividualOperation | BundleOp;
 
 const validateIndividualOperation = (op: IndividualOperation, idx: number, isBundled: boolean): Result => {

@@ -135,7 +135,7 @@ export const batchTransfer = async(cctx: CliContext, filePath: string, priorityL
             amountToTransfer,
             priorityLevel
         )
-        consola.success(`Transfer Transaction Success! 🎉 Tx: ${sig}`);
+        consola.success(`Transfer Transaction Success! Tx: ${sig}`);
     })
     return Ok()
 }

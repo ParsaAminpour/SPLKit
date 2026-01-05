@@ -5,10 +5,10 @@ import BN from 'bn.js'
 import Decimal from "decimal.js"
 import { initSdk, txVersion } from "../../configs/poolConfig";
 import consola from "consola";
-import { confirmOrExit, depositCallbackMessage, showFailureAndReturn } from "../../utils/messageUtils";
+import { confirmOrExit, depositCallbackMessage } from "../../utils/messageUtils";
 import { getUserTokenBalance } from "../readOps/status";
-import { Keypair } from "@solana/web3.js"
-import { PriorityLevel } from "../../utils/transactionUtils";
+import { Keypair, Transaction, TransactionInstruction, TransactionInstructionCtorFields } from "@solana/web3.js"
+import { getPriorityFeeInfo, PriorityLevel } from "../../utils/transactionUtils";
 import { loadKeypair } from "../../utils/utils";
 import { Result, Ok, Err } from "../../types/share";
 
@@ -101,13 +101,15 @@ export const depositPool = async (
 
     // Checking the user blanace despite his answer
     if (isBase) {
-        if (solBalance < computeRes.inputAmountFee.amount.toNumber()) showFailureAndReturn("You have not sufficient (SOL) blanace to done this operation")
-        if (ITABalance < computeRes.anotherAmount.amount.toNumber())  showFailureAndReturn("You have not sufficient (ITA) blanace to done this operation")
+        if (solBalance < computeRes.inputAmountFee.amount.toNumber()) return Err("You have not sufficient (SOL) blanace to done this operation")
+        if (ITABalance < computeRes.anotherAmount.amount.toNumber())  return Err("You have not sufficient (ITA) blanace to done this operation")
     } else {
-        if (ITABalance < computeRes.inputAmountFee.amount.toNumber()) showFailureAndReturn("You have not sufficient (ITA) blanace to done this operation")
-        if (solBalance < computeRes.anotherAmount.amount.toNumber()) showFailureAndReturn("You have not sufficient  (SOL) blanace to done this operation")
+        if (ITABalance < computeRes.inputAmountFee.amount.toNumber()) return Err("You have not sufficient (ITA) blanace to done this operation")
+        if (solBalance < computeRes.anotherAmount.amount.toNumber()) return Err("You have not sufficient  (SOL) blanace to done this operation")
     }
 
+  const estimate = await getPriorityFeeInfo(cctx.heliusSDK, cctx.configs.ita_token_mint_pda, _priorityLevel)
+  if (!estimate.ok) return Err(`There is an error in fetching priority estimation fee\n${estimate.error}`)
   try {
         // computeRes.anotherAmount.amount -> pair amount needed to add liquidity
         // computeRes.anotherAmount.fee -> token2022 transfer fee, might be undefined if isn't token2022 program
@@ -118,22 +120,99 @@ export const depositPool = async (
             slippage,
             baseIn,
             txVersion,
-            // priority fee here
-            // computeBudgetConfig: {
-            //   units: 600000,
-            //   microLamports: 46591500,
-            // },
-        
+            computeBudgetConfig: {
+              units: 600000,
+              microLamports: estimate.value,
+            },
             // optional: add transfer sol to tip account instruction. e.g sent tip to jito
             // txTipConfig: {
             //   address: new PublicKey('96gYZGLnJYVFmbjzopPSU6QiEV5fGqZNyN9nmNhvrZU5'),
             //   amount: new BN(10000000), // 0.01 sol
             // },
         })
-        // don't want to wait confirm, set sendAndConfirm to false or don't pass any params to execute
         const { txId } = await execute({ sendAndConfirm: true })
         return Ok(txId)
     }catch(err) {
         return Err(err as string)
     }
+}
+
+export const getDepositPoolIx = async (
+  cctx: CliContext,
+  signer: Keypair,
+  uiAmount: number,
+  isBase: boolean,
+  _slippage?: number,
+  _priorityLevel: PriorityLevel = 2,
+): Promise<Result<Transaction | TransactionInstruction | TransactionInstructionCtorFields>> => {
+    const raydium = await initSdk(cctx, undefined, signer)
+    const uiInputAmount = new Decimal(uiAmount) 
+  
+    const poolId = cctx.configs.raydium_pool_id
+    let poolInfo: ApiV3PoolInfoStandardItemCpmm
+    let poolKeys: CpmmKeys | undefined
+    
+    if (raydium.cluster === 'mainnet') {
+        const data = await raydium.api.fetchPoolById({ ids: poolId })
+        poolInfo = data[0] as ApiV3PoolInfoStandardItemCpmm
+        if (!isValidCpmm(poolInfo.programId)) return Err('target pool is not CPMM pool')
+    } else {
+        const data = await raydium.cpmm.getPoolInfoFromRpc(poolId)
+        poolInfo = data.poolInfo
+        poolKeys = data.poolKeys
+    }
+  
+    const inputAmount = new BN(new Decimal(uiInputAmount).mul(10 ** poolInfo.mintA.decimals).toFixed(0))
+    const slippage = _slippage ? new Percent(_slippage, 100) : new Percent(2, 100) // 2%
+    const baseIn = true ? isBase : false // base-token ~ ITA Token
+  
+    // just for cli display
+    const res = await raydium.cpmm.getRpcPoolInfos([poolId]);
+    const pool1Info = res[poolId];
+  
+    const computeRes = await raydium.cpmm.computePairAmount({
+        baseReserve: pool1Info.baseReserve,
+        quoteReserve: pool1Info.quoteReserve,
+        poolInfo,
+        amount: uiInputAmount,
+        slippage,
+        baseIn,
+        epochInfo: await raydium.fetchEpochInfo()
+    });
+    const ITABalance = await getUserTokenBalance(cctx, signer.publicKey);
+    const solBalance = await cctx.connection.getBalance(signer.publicKey)
+  
+    if (isBase) {
+        if (solBalance < computeRes.inputAmountFee.amount.toNumber()) return Err("You have not sufficient (SOL) blanace to done this operation")
+        if (ITABalance < computeRes.anotherAmount.amount.toNumber())  return Err("You have not sufficient (ITA) blanace to done this operation")
+    } else {
+        if (ITABalance < computeRes.inputAmountFee.amount.toNumber()) return Err("You have not sufficient (ITA) blanace to done this operation")
+        if (solBalance < computeRes.anotherAmount.amount.toNumber()) return Err("You have not sufficient  (SOL) blanace to done this operation")
+    }
+  
+    // const estimate = await getPriorityFeeInfo(cctx.heliusSDK, cctx.configs.ita_token_mint_pda, _priorityLevel)
+    // if (!estimate.ok) return Err(`There is an error in fetching priority estimation fee\n${estimate.error}`)
+    try {
+        const { transaction } = await raydium.cpmm.addLiquidity({
+            poolInfo,
+            poolKeys,
+            inputAmount,
+            slippage,
+            baseIn,
+            txVersion,
+            // TODO : add this compute budget later
+            // computeBudgetConfig: {
+            //   units: 600_000,
+            //   microLamports: estimate.value,
+            // },
+            // optional: add transfer sol to tip account instruction. e.g sent tip to jito
+            // txTipConfig: {
+            //   address: new PublicKey('96gYZGLnJYVFmbjzopPSU6QiEV5fGqZNyN9nmNhvrZU5'),
+            //   amount: new BN(10000000), // 0.01 sol
+            // },
+        })
+        return Ok(transaction)
+      }catch(err) {
+          return Err(err as string)
+      }
 }
