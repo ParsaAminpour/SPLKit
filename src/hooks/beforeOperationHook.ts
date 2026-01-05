@@ -35,6 +35,7 @@ const validateIndividualOperation = (op: IndividualOperation, idx: number, isBun
     return Ok();
 }
 
+// TODO : Estimate the transaction size in bundle operations and show warning if it exceeds the 1232bytes.
 export const beforeStrategyOpsCheck = (
     ops: StrategyOperation[], 
     isScheduled: boolean

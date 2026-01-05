@@ -1,6 +1,6 @@
 import { initSdk } from "../../configs/poolConfig";
 import { CliContext } from "@/index";
-import { confirmOrExit, mintCallbackMessage, showFailure, showWarning, strategyCallbackMessage, strategyProcessingMessage, swapCallbackMessage, transferCallbackMessage } from "../../utils/messageUtils";
+import { bundleCallbackMessage, confirmOrExit, mintCallbackMessage, showFailure, showWarning, strategyCallbackMessage, strategyProcessingMessage, swapCallbackMessage, transferCallbackMessage } from "../../utils/messageUtils";
 import { Raydium } from "@raydium-io/raydium-sdk-v2";
 import fs from "fs"
 import { showFailureAndReturn } from "../../utils/messageUtils";
@@ -226,8 +226,10 @@ const operationMapper = async(cctx: CliContext, op: StrategyOperation, callerKp:
         case "bundle":
             const bundleRes = await bundleOperations(cctx, raydium, op)
             if (!bundleRes.ok) {
+                bundleCallbackMessage(true, undefined, `Operation ID: ${op.id} | ${bundleRes.error}`)
                 return Err(bundleRes.error)
             }
+            bundleCallbackMessage(false, bundleRes.value)
             return Ok(bundleRes.value)
     }
     return Ok()
@@ -235,7 +237,7 @@ const operationMapper = async(cctx: CliContext, op: StrategyOperation, callerKp:
 
 export const bundleOperations = async(cctx: CliContext, raydium: Raydium, op: BundleOp): Promise<Result<string>> => {
     const tx = new Transaction()
-    
+    console.log(`start bundling operation ${op.id}...`)
     const bundleKeypairPath = op.callerKp
     if (!bundleKeypairPath) {
         return Err(`Bundle operation ${op.id} must have 'callerKp' specified at the bundle level`)
@@ -296,8 +298,9 @@ export const bundleOperations = async(cctx: CliContext, raydium: Raydium, op: Bu
     }
 
     try {
+        console.log(`serializing bundle transaction...`)
         const settledResults = await executeTransactions(cctx.connection, [tx], bundleKeypair)
-        return Ok("All operations in this bundle executed successfully with signatures: " + settledResults.map(result => result.status === "fulfilled" ? result.value : result.reason).join(", "))
+        return Ok(settledResults.map(result => result.status === "fulfilled" ? result.value : result.reason).join(", "))
     } catch (error) {
         console.log(`error sending and confirming transaction: ${error}`)
         return Err(error as string)

@@ -141,6 +141,20 @@ export const swapCallbackMessage = (isFailed: boolean, txId?: string, reason?: s
     }
 }
 
+export const bundleCallbackMessage = (isFailed: boolean, txId?: string, reason?: string) => {
+    if (isFailed) {
+        const message = "Bundle Transaction Failed! ❌";
+        const details = reason ? `Reason: ${reason}` : "No transaction ID available";
+        showFailure(message, details);
+    } else {
+        const message = "Bundle Transaction Success! 🎉";
+        const details = txId 
+            ? explorerLink(txId)
+            : undefined;
+        showSuccess(message, details);
+    }
+}
+
 export const strategyCallbackMessage = (isFailed: boolean, successCount?: number, failureCount?: number, reason?: string) => {
     if (isFailed) {
         const message = "Strategy Execution Failed! ❌";

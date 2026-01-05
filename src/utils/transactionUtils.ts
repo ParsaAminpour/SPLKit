@@ -5,7 +5,8 @@ import { Connection } from "@solana/web3.js";
 import { Transaction } from "@solana/web3.js";
 import { Keypair } from "@solana/web3.js";
 import { sendAndConfirmTransaction } from "@solana/web3.js";
-import { TX_INTERVAL } from "../commands/constants";
+import { MAX_TRANSACTION_SIZE_BYTES, TX_INTERVAL } from "../commands/constants";
+import { showWarning } from "./messageUtils";
 
 const MIN_UNITS = 10000;
 const MAX_UNITS = 1400000; // Solana's max per transaction
@@ -51,6 +52,15 @@ export const executeTransactions = async(connection: Connection, transactionList
   )})
   result = await Promise.allSettled(staggeredTransactions);
   return result;
+}
+
+export const checkBundleTransactionSize = async(connection: Connection, transactionList: Transaction[]) => {
+    transactionList.map((trx) => {
+        connection.getLatestBlockhash()
+            .then(recentBlockhash => trx.recentBlockhash = recentBlockhash.blockhash)
+        const size = trx.serialize.length
+        if (size > MAX_TRANSACTION_SIZE_BYTES) showWarning(`Warning: transaction size (${size} bytes) exceeds the max allowed (${MAX_TRANSACTION_SIZE_BYTES} bytes).`);
+    })
 }
 
 export enum PriorityLevel { LOW, MEDIUM, HIGH, VERY_HIGH, UNSAFE_MAX }
