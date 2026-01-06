@@ -203,7 +203,7 @@
         "id": "mint_lp_1",
         "operation": "mintTo",
         "destinationAccount": "./wallets/wallet1.json",
-        "amount": 50000000000000000,
+        "amount": 50000000000000,
         "priorityLevel": 2,
         "timeToExecute": null
       },
@@ -211,7 +211,7 @@
         "id": "mint_lp_2",
         "operation": "mintTo",
         "destinationAccount": "./wallets/wallet2.json",
-        "amount": 50000000000000000,
+        "amount": 50000000000000,
         "priorityLevel": 2,
         "timeToExecute": null
       },
@@ -219,7 +219,7 @@
         "id": "mint_lp_3",
         "operation": "mintTo",
         "destinationAccount": "./wallets/wallet3.json",
-        "amount": 50000000000000000,
+        "amount": 50000000000000,
         "priorityLevel": 2,
         "timeToExecute": null
       },
@@ -227,7 +227,7 @@
         "id": "mint_lp_4",
         "operation": "mintTo",
         "destinationAccount": "./wallets/wallet4.json",
-        "amount": 50000000000000000,
+        "amount": 50000000000000,
         "priorityLevel": 2,
         "timeToExecute": null
       },
@@ -235,7 +235,7 @@
         "id": "mint_lp_5",
         "operation": "mintTo",
         "destinationAccount": "./wallets/wallet5.json",
-        "amount": 50000000000000000,
+        "amount": 50000000000000,
         "priorityLevel": 2,
         "timeToExecute": null
       },

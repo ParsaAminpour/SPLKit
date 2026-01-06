@@ -35,6 +35,18 @@ export interface CliContext {
     // getConfigs(): ITAConfiguration
 }
 
+// Suppress the console error logs for not having messy runtime panic logs
+console.error = () => {};
+console.warn = () => {};
+process.on('uncaughtException', (error) => {
+    console.log(`Error: ${error.message}`);
+    process.exit(1);
+});
+process.on('unhandledRejection', (reason: any) => {
+    console.log(`Error: ${reason?.message || reason}`);
+    process.exit(1);
+});
+
 const setup = (): CliContext => {
     const conf = configs.load()
     const connection = new anchor.web3.Connection(conf.cluster_url, "confirmed");

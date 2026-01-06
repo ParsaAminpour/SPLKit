@@ -105,30 +105,11 @@ export const strategyBuilder = async (
         const parsed = JSON.parse(rawContent) as StrategyFileContent;        
         if (!Array.isArray(parsed)) showFailureAndReturn("Strategy file must contain an array of operations");
         
-        for (const op of parsed) {
-            if (!op.operation || !["mintTo", "transfer", "swap", "deposit", "bundle"].includes(op.operation)) {
-                showFailureAndReturn(`Invalid operation type: ${op.operation}. Must be one of: mintTo, transfer, swap, deposit, bundle`);
-            }
-            if (op.operation === "bundle") {
-                const bundleOp = op as BundleOp;
-                if (!bundleOp.operations || !Array.isArray(bundleOp.operations) || bundleOp.operations.length === 0) {
-                    showFailureAndReturn(`Bundle operation ${bundleOp.id} must contain a non-empty array of operations`);
-                }
-                if (!bundleOp.signer) {
-                    showFailureAndReturn(`Bundle operation ${bundleOp.id} must have 'signer' specified at the bundle level`);
-                }
-                for (const bundledOp of bundleOp.operations) {
-                    if (!bundledOp.operation || !["mintTo", "transfer", "swap", "deposit"].includes(bundledOp.operation)) {
-                        showFailureAndReturn(`Invalid operation type in bundle ${bundleOp.id}: ${bundledOp.operation}. Must be one of: mintTo, transfer, swap`);
-                    }
-                }
-            }
-        }
         operations = parsed;
     } catch (e) {
         return Err("The strategy file is not a valid JSON format or it's empty");
     }
-    
+
     if (startsWith) {
         const startIndex = operations.findIndex(op => op.id === startsWith);
         if (startIndex === -1) {
@@ -137,7 +118,6 @@ export const strategyBuilder = async (
         operations = operations.slice(startIndex);
     }
 
-    // TODO : Add check for the add liquidity operation
     const result = beforeStrategyOpsCheck(operations, _isScheduled);
     if (!result.ok) {
         return Err(result.error);
@@ -155,19 +135,18 @@ export const strategyBuilder = async (
 
     for (const op of operations) {
         let callerKp: Keypair
-        if (op.operation === "bundle") {
-            callerKp = op.signer == "admin" ? _cctx.configs.admin_wallet_keypair! : loadKeypair(op.signer)
-        } else {
-            if (op.operation === "swap") {
-                callerKp = op.signer == "admin" ? _cctx.configs.admin_wallet_keypair! : loadKeypair(op.signer!)
-            } else if (op.operation === "transfer") {
-                callerKp = op.signer == "admin" ? _cctx.configs.admin_wallet_keypair! : loadKeypair(op.signer!)
-            } else {
-                callerKp = _cctx.configs.admin_wallet_keypair!
-            }
-        }
+        if (op.operation != "mintTo") callerKp = op.signer == "admin" ? _cctx.configs.admin_wallet_keypair! : loadKeypair(op.signer!)
+        else callerKp = _cctx.configs.admin_wallet_keypair!
+
+        // if any error happens in this handler, the logs will be emitted based on the type of operation
         const opRes = await operationMapper(_cctx, op, callerKp)
-        if (!opRes.ok) failureCount.push({ id: op.id, operation: op.operation, reason: opRes.error })
+        if (!opRes.ok) {
+            failureCount.push({ id: op.id, operation: op.operation, reason: opRes.error })
+            await confirmOrExit(
+                `The ${op.operation} operation with ${op.id} id has been failed, Do you want to continue?`,
+                `Strategy executer has been stopped due to ${op.operation}-${op.id} failure`
+            )
+        }
         if (_withDelay) await new Promise(r => setTimeout(r, _withDelay));
     }
     return Ok({ 
@@ -213,10 +192,9 @@ const operationMapper = async(cctx: CliContext, op: StrategyOperation, callerKp:
             if (!op.signer) {
                 return Err(`Operation ID: ${op.id} | Standalone transfer operation must have 'signer' specified`)
             }
-            const fromKp = op.signer == "admin" ? cctx.configs.admin_wallet_keypair : loadKeypair(op.signer)
             if (op.assetPDA == cctx.configs.ita_token_mint_pda) {
                 const normalAmount = op.amount / 1e9
-                const transferRes = await transferToken(cctx, fromKp!, op.toPk, normalAmount, false)
+                const transferRes = await transferToken(cctx, callerKp, op.toPk, normalAmount, false)
                 if (!transferRes.ok) { 
                     transferCallbackMessage(true, undefined, `Operation ID: ${op.id} | ${transferRes.error}`) 
                     return Err(transferRes.error)
@@ -225,7 +203,7 @@ const operationMapper = async(cctx: CliContext, op: StrategyOperation, callerKp:
                 return Ok(transferRes.value)
             }
             else if (op.assetPDA == NATIVE_MINT.toBase58()) {
-                const transferRes = await nativeTransfer(cctx, fromKp!, new PublicKey(op.toPk), op.amount, false) // in lamports
+                const transferRes = await nativeTransfer(cctx, callerKp, new PublicKey(op.toPk), op.amount, false) // in lamports
                 if (!transferRes.ok) {
                     transferCallbackMessage(true, undefined, `Operation ID: ${op.id} | ${transferRes.error}`)
                     return Err(transferRes.error)
@@ -236,14 +214,10 @@ const operationMapper = async(cctx: CliContext, op: StrategyOperation, callerKp:
             break;
 
         case "deposit":
-            if (!op.signer) {
-                return Err(`Operation ID: ${op.id} | Standalone transfer operation must have 'signer' specified`)
-            }
             const uiAmount = op.amount / 1e9
-            const signer = op.signer == "admin" ? cctx.configs.admin_wallet_keypair : loadKeypair(op.signer)
             const depositTxRes = await depositPool(
                 cctx, 
-                signer!, 
+                callerKp, 
                 uiAmount, 
                 op.isBase,
                 undefined, 
@@ -257,7 +231,7 @@ const operationMapper = async(cctx: CliContext, op: StrategyOperation, callerKp:
             return Ok(depositTxRes.value)
 
         case "bundle":
-            const bundleRes = await bundleOperations(cctx, raydium, op)
+            const bundleRes = await bundleOperations(cctx, raydium, op, callerKp)
             if (!bundleRes.ok) {
                 bundleCallbackMessage(true, undefined, `Operation ID: ${op.id} | ${bundleRes.error}`)
                 return Err(bundleRes.error)
@@ -268,14 +242,8 @@ const operationMapper = async(cctx: CliContext, op: StrategyOperation, callerKp:
     return Ok()
 }
 
-export const bundleOperations = async(cctx: CliContext, raydium: Raydium, op: BundleOp): Promise<Result<string>> => {
+export const bundleOperations = async(cctx: CliContext, raydium: Raydium, op: BundleOp, bundledOpSigner: Keypair): Promise<Result<string>> => {
     const tx = new Transaction()
-    const bundleKeypairPath = op.signer
-    if (!bundleKeypairPath) {
-        return Err(`Bundle operation ${op.id} must have 'signer' specified at the bundle level`)
-    }
-    const bundleKeypair = bundleKeypairPath == "admin" ? cctx.configs.admin_wallet_keypair! : loadKeypair(bundleKeypairPath)
-
     for (const bundledOp of op.operations) {
         switch(bundledOp.operation) {
             case "swap":
@@ -283,7 +251,7 @@ export const bundleOperations = async(cctx: CliContext, raydium: Raydium, op: Bu
                     cctx,
                     raydium,
                     cctx.configs.raydium_pool_id,
-                    bundleKeypairPath, // Use bundle-level callerKp
+                    bundledOpSigner,
                     bundledOp.amount,
                     bundledOp.inputMintPDA == NATIVE_MINT.toBase58() ? SwapDirection.BUY : SwapDirection.SELL,
                     bundledOp.priorityLevel
@@ -295,30 +263,30 @@ export const bundleOperations = async(cctx: CliContext, raydium: Raydium, op: Bu
             case "transfer":
                 const senderTokenAccount = getAssociatedTokenAddressSync(
                     cctx.itaTokenMintPDA,
-                    bundleKeypair.publicKey,
+                    bundledOpSigner.publicKey,
                     false,
                     TOKEN_PROGRAM_ID,
                     ASSOCIATED_TOKEN_PROGRAM_ID
                 )
                 const destinationTokenAccount = await getOrCreateAssociatedTokenAccount(
                     cctx.connection,
-                    bundleKeypair,
+                    bundledOpSigner,
                     new PublicKey(cctx.itaTokenMintPDA),
                     new PublicKey(bundledOp.toPk)
                 )
                 let transferIx: TransactionIx
                 if (bundledOp.assetPDA == cctx.configs.ita_token_mint_pda) {
                     const normalAmount = bundledOp.amount / 1e9
-                    transferIx = createTransferInstruction(senderTokenAccount, destinationTokenAccount.address, bundleKeypair.publicKey, normalAmount)
+                    transferIx = createTransferInstruction(senderTokenAccount, destinationTokenAccount.address, bundledOpSigner.publicKey, normalAmount)
                 } else if (bundledOp.assetPDA == NATIVE_MINT.toBase58()) {
                     transferIx = SystemProgram.transfer({
-                        fromPubkey: bundleKeypair.publicKey,
+                        fromPubkey: bundledOpSigner.publicKey,
                         toPubkey: new PublicKey(bundledOp.toPk),
                         lamports: bundledOp.amount,
                     })
                 } else {
                     showWarning("Attention: You are transfering with unknown token PDA!")
-                    transferIx = createTransferInstruction(senderTokenAccount, destinationTokenAccount.address, bundleKeypair.publicKey, bundledOp.amount)
+                    transferIx = createTransferInstruction(senderTokenAccount, destinationTokenAccount.address, bundledOpSigner.publicKey, bundledOp.amount)
                 }
                 tx.add(transferIx)
                 break
@@ -327,7 +295,7 @@ export const bundleOperations = async(cctx: CliContext, raydium: Raydium, op: Bu
                 const uiAmount = bundledOp.amount / 1e9
                 const depositIx = await getDepositPoolIx(
                     cctx, 
-                    bundleKeypair, 
+                    bundledOpSigner, 
                     uiAmount, 
                     bundledOp.isBase, 
                     undefined, 
@@ -344,13 +312,14 @@ export const bundleOperations = async(cctx: CliContext, raydium: Raydium, op: Bu
     }
 
     try {
-        const settledResults = await executeTransactions(cctx.connection, [tx], bundleKeypair)
+        const settledResults = await executeTransactions(cctx.connection, [tx], bundledOpSigner)
         return Ok(settledResults.map(result => result.status === "fulfilled" ? result.value : result.reason).join(", "))
     } catch (error) {
         console.log(`error sending and confirming transaction: ${error}`)
         return Err(error as string)
     }
 }
+
 
 const operationCounter = (ops: StrategyOperation[]): { transferCount: number, swapCount: number, mintToCount: number, depositCount: number, bundleCount: number } => {
     let transferCount = 0;
@@ -376,7 +345,6 @@ const operationCounter = (ops: StrategyOperation[]): { transferCount: number, sw
     }
     return { transferCount, swapCount, mintToCount, bundleCount, depositCount };
 }
-
 
 export const strategyBuilderHandler = async(cctx: CliContext, options: any) => {
     try {

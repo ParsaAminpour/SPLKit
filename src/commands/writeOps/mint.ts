@@ -52,6 +52,7 @@ export const mintToken = async(cctx: CliContext, to: string, amount: number, pri
             return Err(transferTxResult.error)
         }
         return Ok(`${mintTx},${transferTxResult.value}`)
+        
     } catch (err) {
         return Err(err instanceof Error ? err.message : "an unexpected error occurred")
     }

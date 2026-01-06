@@ -18,7 +18,7 @@ import { Result, Ok, Err } from '../../types/share'
 import { loadKeypair } from '../../utils/utils'
 import { getPriorityFeeInfo, PriorityLevel } from '../../utils/transactionUtils'
 import { calculatePriceImpact, getPricePredict } from '../readOps/swapInfo'
-import { Transaction, TransactionInstruction, TransactionInstructionCtorFields } from "@solana/web3.js";
+import { Keypair, Transaction, TransactionInstruction, TransactionInstructionCtorFields } from "@solana/web3.js";
 
 // import { apiSwapBaseOut } from './helpers'
 
@@ -31,7 +31,7 @@ export const getSwapITATokenIx = async(
     cctx: CliContext,
     raydium: Raydium,
     poolId: string,
-    payerKpLoc: string,
+    signer: Keypair,
     amountIn: number,
     direction: SwapDirection,
     priorityLevel: number = PriorityLevel.MEDIUM
@@ -72,7 +72,7 @@ export const getSwapITATokenIx = async(
         const estimate = await getPriorityFeeInfo(cctx.heliusSDK, cctx.configs.ita_token_mint_pda, priorityLevel)
         if (!estimate.ok) return Err(`There is an error in fetching priority estimation fee\n${estimate.error}`)
       
-        const payer = payerKpLoc == "admin" ? cctx.configs.admin_wallet_keypair!.publicKey : loadKeypair(payerKpLoc).publicKey
+        const payer = signer.publicKey
         const { transaction } = await raydium.cpmm.swap({
           poolInfo,
           poolKeys,

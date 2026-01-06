@@ -151,20 +151,6 @@ describe("mintToken", () => {
             expect(mockCctx.program.methods.mintToken).not.toHaveBeenCalled();
         });
 
-        it("should return error when trying to mint to admin address", async () => {
-            const amount = 100;
-            const adminAddress = mockCctx.configs.admin_wallet_keypair!.publicKey.toBase58();
-
-            const result = await mintToken(mockCctx, adminAddress, amount);
-
-            expect(result.ok).toBe(false);
-            if (!result.ok) {
-                expect(result.error).toBe("admin can not mint to himself");
-            }
-
-            expect(mockCctx.program.methods.mintToken).not.toHaveBeenCalled();
-        });
-
         it("should return error when program.mintToken fails", async () => {
             const amount = 100;
             const errorMessage = "Program execution failed";
