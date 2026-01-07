@@ -5,12 +5,18 @@ import { singleTransfer } from "../../utils/transferUtils"
 import * as utils from "../../utils/utils"
 import * as anchor from "@coral-xyz/anchor"
 import { Result, Ok, Err } from "../../types/share";
-import { mintCallbackMessage, transferCallbackMessage } from "../../utils/messageUtils"
+import { confirmOrExit, mintCallbackMessage, transferCallbackMessage } from "../../utils/messageUtils"
 import { PriorityLevel, getPriorityFeeInfo } from "../../utils/transactionUtils"
 
 
 // NOTE : to is the destination wallet address, not Associated Token Account
-export const mintToken = async(cctx: CliContext, to: string, amount: number, priorityLevel: number = PriorityLevel.MEDIUM): Promise<Result<string>> => {
+export const mintToken = async (
+    cctx: CliContext, 
+    to: string, 
+    amount: number, 
+    priorityLevel: number = PriorityLevel.MEDIUM, 
+    askBeforeAction: boolean = false
+): Promise<Result<string>> => {
     if (!cctx.configs.admin_wallet_keypair) {
         return Err("Admin wallet keypair is not configured in CLI context")
     }
@@ -27,6 +33,12 @@ export const mintToken = async(cctx: CliContext, to: string, amount: number, pri
             TOKEN_PROGRAM_ID,
             ASSOCIATED_TOKEN_PROGRAM_ID
         )
+
+        if (askBeforeAction) {
+            console.log("\nYou are about to mint", amount, "ITA tokens to recipient:", to);
+            await confirmOrExit("Proceed with minting?", "Mint operation has been terminated by user.");
+        }
+        
         const mintTx = await cctx.program.methods.mintToken(
             new anchor.BN(amount)
         ).rpc()
@@ -52,7 +64,7 @@ export const mintToken = async(cctx: CliContext, to: string, amount: number, pri
             return Err(transferTxResult.error)
         }
         return Ok(`${mintTx},${transferTxResult.value}`)
-        
+
     } catch (err) {
         return Err(err instanceof Error ? err.message : "an unexpected error occurred")
     }

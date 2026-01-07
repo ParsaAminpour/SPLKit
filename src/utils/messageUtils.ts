@@ -99,6 +99,29 @@ export const transferCallbackMessage = (isFailed: boolean, txId?: string, reason
     }
 }
 
+export const batchTransferCallbackMessage = (
+    isFailed: boolean,
+    counts?: { successCount: number; failedCount: number },
+    reason?: string
+) => {
+    const rateStr =
+        counts && counts.successCount + counts.failedCount > 0
+            ? ` (Success: ${counts.successCount}, Failed: ${counts.failedCount}, Success Rate: ${(
+                  (counts.successCount / (counts.successCount + counts.failedCount)) *
+                  100
+              ).toFixed(1)}%)`
+            : "";
+
+    if (isFailed) {
+        const message = `Batch Transfer Operation Failed Before Execution! ❌${rateStr}`;
+        const details = reason ? `Reason: ${reason}` : "No transaction IDs available";
+        showFailure(message, details);
+    } else {
+        const message = `Batch Transfer Transaction Success!${rateStr}`;
+        showSuccess(message);
+    }
+}
+
 export const transferNativeCallbackMessage = (isFailed: boolean, txId?: string, reason?: string) => {
     if (isFailed) {
         const message = "Transfer Transaction Failed! ❌";

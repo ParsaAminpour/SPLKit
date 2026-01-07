@@ -69,6 +69,7 @@ export const createCommands = (cctx: CliContext) => {
         .option("-f, --from-keypair <string>", "Sender keypair JSON path (defaults to admin)", "admin")
         .requiredOption("-t, --to <string>", "Recipient wallet address (owner, not ATA)")
         .requiredOption("-a, --amount <number>", "Amount to transfer in UI units (e.g., 1 = one whole token)")
+        .option("-v --verbose", "provide information about the operation that is going to happen before start")
         .option("--priority-level <number>", "Priority fee level: 0=LOW, 1=MEDIUM (default), 2=HIGH, 3=VERY_HIGH, 4=UNSAFE_MAX", "1")
         .description("Transfer ITA tokens from the specified sender (default admin) to the recipient")
         .hook("preAction", (thisCommand) => {
@@ -82,6 +83,7 @@ export const createCommands = (cctx: CliContext) => {
         .option("-f, --from-keypair <string>", "Sender keypair JSON path (defaults to admin)", "admin")
         .requiredOption("-t, --to <string>", "Recipient wallet address")
         .requiredOption("-a, --amount <number>", "Amount of SOL to send (in SOL, e.g., 0.1)")
+        .option("-v --verbose", "provide information about the operation that is going to happen before start")
         .option("--priority-level <number>", "Priority fee level: 0=LOW, 1=MEDIUM (default), 2=HIGH, 3=VERY_HIGH, 4=UNSAFE_MAX", "1")
         .description("Transfer SOL from the specified sender (default admin) to the recipient wallet")
         .hook("preAction", (thisCommand) => {
@@ -92,13 +94,19 @@ export const createCommands = (cctx: CliContext) => {
         })
 
     const batchTransfercommand = transferCommand.command("batch")
-        .requiredOption("-f --file <string>", "Path to CSV/JSON list of recipients and amounts")
+        .requiredOption("--from-keypair <string>", "Sender keypair JSON path (defaults to admin)", "admin")
+        .requiredOption("-f --file <string>", "Path to list of recipients and amounts separated by ; like <address>;<amountInLmaports>")
+        .requiredOption("--asset-pda <string>", "Token mint public key (PDA) of asset to transfer (e.g. for ITA or SOL)")
+        .option("-v --verbose", "provide information about the operation that is going to happen before start")
         .option("--priority-level <number>", "Priority fee level: 0=LOW, 1=MEDIUM (default), 2=HIGH, 3=VERY_HIGH, 4=UNSAFE_MAX", "1")       
         .description("Batch transfer ITA tokens from admin to recipients listed in file")
         .hook("preAction", (thisCommand) => {
             const opts = thisCommand.opts();
             if (![0, 1, 2, 3, 4].includes(Number(opts.priorityLevel))) {
                 showFailureAndReturn("Invalid value for --priority-level. Allowed values are 0=LOW, 1=MEDIUM, 2=HIGH, 3=VERY_HIGH, 4=UNSAFE_MAX.");
+            }
+            if (!fs.existsSync(opts.file)) {
+                showFailureAndReturn("declared file does not exist");
             }
         })
 

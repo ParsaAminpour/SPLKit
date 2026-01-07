@@ -92,7 +92,8 @@ export const strategyBuilder = async (
     _isScheduled: boolean,
     _withDelay?: number,
     startsWith?: string,
-    askBeforeAction: boolean = false
+    askBeforeAction: boolean = false,
+    isVerbose: boolean = false
 ): Promise<Result<Success>> => {
     if (!fs.existsSync(_strategyFileRoute)) showFailureAndReturn("The target file doesn't exist")
     if (!_strategyFileRoute.endsWith(".json")) {
@@ -117,7 +118,7 @@ export const strategyBuilder = async (
         }
         operations = operations.slice(startIndex);
     }
-
+    
     const result = beforeStrategyOpsCheck(operations, _isScheduled);
     if (!result.ok) {
         return Err(result.error);
@@ -139,7 +140,7 @@ export const strategyBuilder = async (
         else callerKp = _cctx.configs.admin_wallet_keypair!
 
         // if any error happens in this handler, the logs will be emitted based on the type of operation
-        const opRes = await operationMapper(_cctx, op, callerKp)
+        const opRes = await operationMapper(_cctx, op, callerKp, isVerbose)
         if (!opRes.ok) {
             failureCount.push({ id: op.id, operation: op.operation, reason: opRes.error })
             await confirmOrExit(
@@ -147,6 +148,7 @@ export const strategyBuilder = async (
                 `Strategy executer has been stopped due to ${op.operation}-${op.id} failure`
             )
         }
+        console.log("───────────────────────────────────────");
         if (_withDelay) await new Promise(r => setTimeout(r, _withDelay));
     }
     return Ok({ 
@@ -155,12 +157,13 @@ export const strategyBuilder = async (
     })
 }
 
-const operationMapper = async(cctx: CliContext, op: StrategyOperation, callerKp: Keypair): Promise<Result<string>> => {
+
+const operationMapper = async(cctx: CliContext, op: StrategyOperation, callerKp: Keypair, isVerbose: boolean): Promise<Result<string>> => {
     const raydium = await initSdk(cctx, undefined, callerKp)
     switch(op.operation) {
         case "mintTo":
             const normalAmount = op.amount / 1e9
-            const mintRes = await mintToken(cctx, op.destinationAccount, normalAmount);
+            const mintRes = await mintToken(cctx, op.destinationAccount, normalAmount, op.priorityLevel, isVerbose);
             if (!mintRes.ok) {
                 mintCallbackMessage(true, undefined, `Operation ID: ${op.id} | ${mintRes.error}`)
                 return Err(mintRes.error)
@@ -169,17 +172,14 @@ const operationMapper = async(cctx: CliContext, op: StrategyOperation, callerKp:
             return Ok(mintRes.value.split(",")[0])
 
         case "swap":
-            if (!op.signer) {
-                return Err(`Operation ID: ${op.id} | Standalone swap operation must have 'signer' specified`)
-            }
             const swapRes = await swapITAToken(
                 cctx,
                 raydium, 
                 cctx.configs.raydium_pool_id, 
-                op.signer, 
+                op.signer!, 
                 op.amount, 
                 op.inputMintPDA == NATIVE_MINT.toBase58() ? SwapDirection.BUY : SwapDirection.SELL,
-                false
+                isVerbose
             );
             if(!swapRes.ok) { 
                 swapCallbackMessage(true, undefined, `Operation ID: ${op.id} | ${swapRes.error}`)
@@ -189,12 +189,9 @@ const operationMapper = async(cctx: CliContext, op: StrategyOperation, callerKp:
             return Ok(swapRes.value)
 
         case "transfer":
-            if (!op.signer) {
-                return Err(`Operation ID: ${op.id} | Standalone transfer operation must have 'signer' specified`)
-            }
             if (op.assetPDA == cctx.configs.ita_token_mint_pda) {
                 const normalAmount = op.amount / 1e9
-                const transferRes = await transferToken(cctx, callerKp, op.toPk, normalAmount, false)
+                const transferRes = await transferToken(cctx, callerKp, op.toPk, normalAmount, isVerbose, op.priorityLevel)
                 if (!transferRes.ok) { 
                     transferCallbackMessage(true, undefined, `Operation ID: ${op.id} | ${transferRes.error}`) 
                     return Err(transferRes.error)
@@ -203,7 +200,7 @@ const operationMapper = async(cctx: CliContext, op: StrategyOperation, callerKp:
                 return Ok(transferRes.value)
             }
             else if (op.assetPDA == NATIVE_MINT.toBase58()) {
-                const transferRes = await nativeTransfer(cctx, callerKp, new PublicKey(op.toPk), op.amount, false) // in lamports
+                const transferRes = await nativeTransfer(cctx, callerKp, new PublicKey(op.toPk), op.amount, isVerbose, op.priorityLevel) // in lamports  
                 if (!transferRes.ok) {
                     transferCallbackMessage(true, undefined, `Operation ID: ${op.id} | ${transferRes.error}`)
                     return Err(transferRes.error)
@@ -221,7 +218,8 @@ const operationMapper = async(cctx: CliContext, op: StrategyOperation, callerKp:
                 uiAmount, 
                 op.isBase,
                 undefined, 
-                op.priorityLevel
+                op.priorityLevel,
+                isVerbose
             )
             if (!depositTxRes.ok) {
                 depositCallbackMessage(true, undefined, `Operation ID: ${op.id} | ${depositTxRes.error}`)
@@ -242,6 +240,7 @@ const operationMapper = async(cctx: CliContext, op: StrategyOperation, callerKp:
     return Ok()
 }
 
+// TODO : add ask before action about the last effect of all operatoins.
 export const bundleOperations = async(cctx: CliContext, raydium: Raydium, op: BundleOp, bundledOpSigner: Keypair): Promise<Result<string>> => {
     const tx = new Transaction()
     for (const bundledOp of op.operations) {
@@ -349,7 +348,7 @@ const operationCounter = (ops: StrategyOperation[]): { transferCount: number, sw
 export const strategyBuilderHandler = async(cctx: CliContext, options: any) => {
     try {
         strategyProcessingMessage()
-        const result = await strategyBuilder(cctx,options.file, options.schedule, options.delay, options.startsWith, true)
+        const result = await strategyBuilder(cctx,options.file, options.schedule, options.delay, options.startsWith, true, options.verbose)
         !result.ok 
             ? strategyCallbackMessage(true, undefined, undefined, result.error) 
             : strategyCallbackMessage(false, result.value.operationSucceedCount, result.value.operationFailedCount, undefined); 
