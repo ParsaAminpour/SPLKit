@@ -1,11 +1,10 @@
 import { CliContext } from "@/index";
 import { singleTransfer } from "../../utils/transferUtils";
-import { getAssociatedTokenAddressSync, getOrCreateAssociatedTokenAccount, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { getAssociatedTokenAddressSync, getOrCreateAssociatedTokenAccount, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, NATIVE_MINT } from "@solana/spl-token";
 import * as utils from "../../utils/utils"
 import { PublicKey } from "@metaplex-foundation/js"
 import consola from "consola";
-import { transferCallbackMessage, transferNativeCallbackMessage, transferProcessingMessage } from "../../utils/messageUtils";
-import fs from "fs"
+import { batchTransferCallbackMessage, showFailureAndReturn, transferCallbackMessage, transferNativeCallbackMessage, transferProcessingMessage } from "../../utils/messageUtils";
 import { Keypair, sendAndConfirmTransaction, SystemProgram, Transaction } from "@solana/web3.js";
 import { Result, Ok, Err } from "../../types/share";
 import { dataFormatForBatchTransferByLineCheck } from "../../hooks/beforeOperationHook";
@@ -76,73 +75,66 @@ export const transferToken = async(
 export const transferTokenHandler = async(cctx: CliContext, options: any) => {
     const fromKeypair = options.fromKeypair == "admin" ? cctx.configs.admin_wallet_keypair : utils.loadKeypair(options.fromKeypair)
     transferProcessingMessage(fromKeypair!.publicKey.toBase58(), options.to, options.amount)
-    const result = await transferToken(cctx, fromKeypair!, options.to, options.amount, true, options.priorityLevel)
-    !result.ok ? transferCallbackMessage(true) : transferCallbackMessage(false, result.value)
+    const result = await transferToken(cctx, fromKeypair!, options.to, options.amount, options.verbose, options.priorityLevel)
+    !result.ok ? transferCallbackMessage(true, undefined, result.error) : transferCallbackMessage(false, undefined, result.value)
 }
 
 
 
-// NOTE : batch transfer is only allowed for the scenario that admin is the sender
-export const batchTransfer = async(cctx: CliContext, filePath: string, priorityLevel: number = PriorityLevel.MEDIUM): Promise<Result<string>> => {
-    if (!filePath) {
-        return Err("Option --file is mandatory for batch transfer");
-    }
-    if (!fs.existsSync(filePath)) {
-        return Err("declared file does not exist");
-    }
-
-    if (!cctx.configs.admin_wallet_keypair) return Err("Admin wallet keypair is not configured in CLI context")
-    const adminAddress = cctx.configs.admin_wallet_keypair.publicKey
-
+export const batchTransfer = async (
+    cctx: CliContext,
+    filePath: string,
+    callerKp: Keypair,
+    assetPda: PublicKey,
+    isVerbose: boolean,
+    priorityLevel: number = PriorityLevel.MEDIUM
+): Promise<Result<{ successCount: number, failedCount: number}>> => {
     const content = (await utils.readFromFileLineByLine(filePath)).filter(line => line.trim().length > 0)
     for (const [idx, c] of content) {
         if (!dataFormatForBatchTransferByLineCheck(c)) {
             return Err(`data is not in right format in line ${idx}`)
         }
-        if (c.split(";")[0] == adminAddress.toString()) {
-            return Err(`admin wallet as destination is not allowed`)
-        }
     }
-    
-    const tokenDecimalNumber = await utils.getNumberOfDecimals(cctx.connection, cctx.itaTokenMintPDA)
+    // @ts-ignore
+    const tokenDecimalNumber = await utils.getNumberOfDecimals(cctx.connection, assetPda)
+
+    let failedCount = 0
     content.forEach(async(c) => {
         const destinationAddress = c.split(";")[0]
-        const amount = c.split(";")[1]
-        const amountToTransfer = Number(amount) * Math.pow(10, tokenDecimalNumber)
+        const amount = Number(c.split(";")[1]) // it's based on lamports (or with decimal)
+        const amountToTransfer = Number(amount) // should be based on BigInt?
+        if (assetPda.toBase58() == cctx.configs.ita_token_mint_pda) {
+            const itaTokenTransferRes = await transferToken(cctx, callerKp, destinationAddress, amountToTransfer, isVerbose, priorityLevel)
+            if(!itaTokenTransferRes.ok) {
+                transferCallbackMessage(true, undefined, itaTokenTransferRes.error)
+                failedCount++;
+            } else {
+                transferCallbackMessage(false, undefined, itaTokenTransferRes.value)
+            }
 
-        const adminTokenAccount = getAssociatedTokenAddressSync(
-            cctx.itaTokenMintPDA,
-            adminAddress,
-            false,
-            TOKEN_PROGRAM_ID,
-            ASSOCIATED_TOKEN_PROGRAM_ID
-        )
-
-        const destinationTokenAccount = await getOrCreateAssociatedTokenAccount(
-            cctx.connection,
-            cctx.configs.admin_wallet_keypair!,
-            new PublicKey(cctx.itaTokenMintPDA),
-            new PublicKey(destinationAddress)
-        )
-        
-        consola.start(`Transfering ${amountToTransfer/1e9} amount of token from ${adminAddress.toString().slice(0, 4)}...${adminAddress.toString().slice(-4, adminAddress.toString().length)} to ${destinationAddress.slice(0, 4)}...${destinationAddress.slice(-4, destinationAddress.length)}`)
-        const sig = await singleTransfer(
-            cctx,
-            cctx.configs.admin_wallet_keypair!,
-            adminTokenAccount,
-            destinationTokenAccount.address,
-            adminAddress,
-            amountToTransfer,
-            priorityLevel
-        )
-        consola.success(`Transfer Transaction Success! Tx: ${sig}`);
+        } else if (assetPda.toBase58() == NATIVE_MINT.toBase58()) {
+            const nativeTransferRes = await nativeTransfer(cctx, callerKp, new PublicKey(destinationAddress), amountToTransfer, isVerbose, priorityLevel)
+            if (!nativeTransferRes.ok) {
+                transferNativeCallbackMessage(true, undefined, nativeTransferRes.error)
+                failedCount ++;
+            } else {
+                transferNativeCallbackMessage(false, undefined, nativeTransferRes.value)
+            }
+            
+        } else {
+            showFailureAndReturn("We are transfering to an unknown token, please be caution about it or register it in configs")
+        }
     })
-    return Ok()
+    return Ok({
+        successCount: content.length - failedCount,
+        failedCount: failedCount
+    })
 }
 
 export const batchTransferHandler = async(cctx: CliContext, options: any) => {
-    const result = await batchTransfer(cctx, options.file, options.priorityLevel)
-    !result.ok ? transferCallbackMessage(true) : transferCallbackMessage(false);
+    const callerKp = options.fromKeypair == "admin" ? cctx.configs.admin_wallet_keypair : utils.loadKeypair(options.fromKeypair)
+    const result = await batchTransfer(cctx, options.file, callerKp!, new PublicKey(options.assetPda), options.priorityLevel)
+    !result.ok ? batchTransferCallbackMessage(true, undefined, result.error) : batchTransferCallbackMessage(false, result.value, undefined);
 }
 
 
@@ -157,6 +149,7 @@ export const nativeTransfer = async (
     try {
         const estimate = await getPriorityFeeInfo(cctx.heliusSDK, cctx.configs.ita_token_mint_pda, priorityLevel)
         if (!estimate.ok) return Err(`There is an error in fetching priority estimation fee\n${estimate.error}`)
+
         if (askBeforeAction) {
             consola.info("Native SOL Transfer preview based on your input:");
             consola.log(`- Sender: ${fromKp.publicKey.toBase58()}`);
@@ -192,6 +185,7 @@ export const nativeTransfer = async (
         )
         return Ok(signature)
     } catch (err) {
+        consola.log("hahaha")
         return Err(err instanceof Error ? err.message : "an unexpected error occurred")
     }
 }
@@ -199,6 +193,6 @@ export const nativeTransfer = async (
 export const nativeTransferHandler = async(cctx: CliContext, options: any) => {
     const fromKeypair = options.fromKeypair && options.fromKeypair != "admin" ? utils.loadKeypair(options.fromKeypair) : cctx.configs.admin_wallet_keypair!
     transferProcessingMessage(fromKeypair.publicKey.toBase58(), options.to, options.amount)
-    const result = await nativeTransfer(cctx, fromKeypair, new PublicKey(options.to), options.amount, true, options.priorityLevel)
-    !result.ok ? transferNativeCallbackMessage(true) : transferNativeCallbackMessage(false, result.value)
+    const result = await nativeTransfer(cctx, fromKeypair, new PublicKey(options.to), options.amount, options.verbose, options.priorityLevel)
+    !result.ok ? transferNativeCallbackMessage(true, undefined, result.error) : transferNativeCallbackMessage(false, undefined, result.value)
 }
